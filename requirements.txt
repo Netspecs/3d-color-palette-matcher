@@ -1,0 +1,11 @@
+# Core dependencies for 3D Print Color Palette Matcher
+Pillow>=9.0.0          # Image loading, resizing and thumbnails
+numpy>=1.21.0          # K-means clustering and Delta E color math
+
+# Optional: enables drag-and-drop of images onto the window.
+# The app runs fine without it (use the "Load Image" button instead).
+tkinterdnd2>=0.3.0
+
+# Note: Tkinter ships with the Python standard library on Windows and macOS.
+# On some Linux distributions you may need to install it separately, e.g.:
+#   sudo apt-get install python3-tk
