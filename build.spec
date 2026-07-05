@@ -16,6 +16,9 @@ tkinterdnd2 ships a small Tcl library that must be bundled for drag & drop to
 keep working in the frozen app; we collect it automatically below.
 """
 
+import os
+import sys
+
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 datas = []
@@ -29,6 +32,20 @@ try:
     hiddenimports.append("tkinterdnd2")
 except Exception:
     pass
+
+# Bundle the app icon (PNG) so the running window can display it on every OS.
+if os.path.exists(os.path.join("docs", "icon.png")):
+    datas += [(os.path.join("docs", "icon.png"), "docs")]
+
+# Pick the right icon format for the platform being built on:
+#   Windows -> .ico   |   macOS -> .icns   |   Linux -> PNG (or none)
+if sys.platform.startswith("win"):
+    _icon = os.path.join("docs", "icon.ico")
+elif sys.platform == "darwin":
+    _icon = os.path.join("docs", "icon.icns")
+else:
+    _icon = os.path.join("docs", "icon.png")
+app_icon = _icon if os.path.exists(_icon) else None
 
 
 a = Analysis(
@@ -65,5 +82,15 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon="docs/icon.ico" if __import__("os").path.exists("docs/icon.ico") else None,
+    icon=app_icon,
 )
+
+# On macOS, wrap the binary in a proper .app bundle so it gets a Dock icon
+# and shows up like a native application.
+if sys.platform == "darwin":
+    app = BUNDLE(
+        exe,
+        name="3D Color Palette Matcher.app",
+        icon=app_icon,
+        bundle_identifier="com.netspecs.colorpalettematcher",
+    )

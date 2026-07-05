@@ -15,6 +15,7 @@ Run with:  python app.py
 
 import json
 import os
+import sys
 import threading
 import webbrowser
 from tkinter import (
@@ -66,6 +67,7 @@ class ColorMatcherApp:
         self.root.geometry("1080x760")
         self.root.minsize(940, 640)
         self.root.configure(bg=BG)
+        self._set_window_icon()
 
         self.filaments = fdb.get_filaments()
         self.image_path = None
@@ -81,6 +83,32 @@ class ColorMatcherApp:
         self.grams_var = StringVar(value="50")
 
         self._build_ui()
+
+    # ------------------------------------------------------------------ #
+    # Window icon
+    # ------------------------------------------------------------------ #
+    def _resource_path(self, *parts):
+        """Resolve a bundled resource path both from source and when frozen."""
+        base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(base, *parts)
+
+    def _set_window_icon(self):
+        """Give the window/taskbar the app icon (best-effort, cross-platform)."""
+        # Windows: use the .ico for the title bar / taskbar if present.
+        try:
+            ico = self._resource_path("docs", "icon.ico")
+            if os.name == "nt" and os.path.exists(ico):
+                self.root.iconbitmap(ico)
+        except Exception:
+            pass
+        # All platforms: set a PNG icon photo (works on Linux/macOS too).
+        try:
+            png = self._resource_path("docs", "icon.png")
+            if os.path.exists(png):
+                self._icon_img = ImageTk.PhotoImage(Image.open(png))
+                self.root.iconphoto(True, self._icon_img)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------ #
     # UI construction
