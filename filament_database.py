@@ -53,22 +53,22 @@ _FILAMENTS: List[Dict[str, str]] = [
     # ------------------------------------------------------------------ #
     # Hatchbox                                                           #
     # ------------------------------------------------------------------ #
-    {"brand": "Hatchbox", "material": "PLA", "name": "White", "hex": "#F7F7F4", "url": "https://www.hatchbox3d.com/collections/pla"},
-    {"brand": "Hatchbox", "material": "PLA", "name": "Black", "hex": "#1A1A1A", "url": "https://www.hatchbox3d.com/collections/pla"},
-    {"brand": "Hatchbox", "material": "PLA", "name": "True Red", "hex": "#B01B22", "url": "https://www.hatchbox3d.com/collections/pla"},
-    {"brand": "Hatchbox", "material": "PLA", "name": "Blue", "hex": "#1F4E9B", "url": "https://www.hatchbox3d.com/collections/pla"},
-    {"brand": "Hatchbox", "material": "PLA", "name": "Green", "hex": "#2E8B57", "url": "https://www.hatchbox3d.com/collections/pla"},
-    {"brand": "Hatchbox", "material": "PLA", "name": "Yellow", "hex": "#F2C50B", "url": "https://www.hatchbox3d.com/collections/pla"},
-    {"brand": "Hatchbox", "material": "PLA", "name": "Orange", "hex": "#E8641A", "url": "https://www.hatchbox3d.com/collections/pla"},
-    {"brand": "Hatchbox", "material": "PLA", "name": "Purple", "hex": "#6A3FA0", "url": "https://www.hatchbox3d.com/collections/pla"},
-    {"brand": "Hatchbox", "material": "PLA", "name": "Gray", "hex": "#7D7F7C", "url": "https://www.hatchbox3d.com/collections/pla"},
-    {"brand": "Hatchbox", "material": "PETG", "name": "PETG Black", "hex": "#151515", "url": "https://www.hatchbox3d.com/collections/petg"},
-    {"brand": "Hatchbox", "material": "PETG", "name": "PETG White", "hex": "#FAFAFA", "url": "https://www.hatchbox3d.com/collections/petg"},
-    {"brand": "Hatchbox", "material": "PETG", "name": "PETG Red", "hex": "#A5202A", "url": "https://www.hatchbox3d.com/collections/petg"},
-    {"brand": "Hatchbox", "material": "PETG", "name": "PETG Blue", "hex": "#22548F", "url": "https://www.hatchbox3d.com/collections/petg"},
-    {"brand": "Hatchbox", "material": "ABS", "name": "ABS Black", "hex": "#181818", "url": "https://www.hatchbox3d.com/collections/abs"},
-    {"brand": "Hatchbox", "material": "ABS", "name": "ABS White", "hex": "#F4F4F0", "url": "https://www.hatchbox3d.com/collections/abs"},
-    {"brand": "Hatchbox", "material": "ABS", "name": "ABS Red", "hex": "#AE1C24", "url": "https://www.hatchbox3d.com/collections/abs"},
+    {"brand": "Hatchbox", "material": "PLA", "name": "White", "hex": "#F7F7F4", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "PLA", "name": "Black", "hex": "#1A1A1A", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "PLA", "name": "True Red", "hex": "#B01B22", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "PLA", "name": "Blue", "hex": "#1F4E9B", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "PLA", "name": "Green", "hex": "#2E8B57", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "PLA", "name": "Yellow", "hex": "#F2C50B", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "PLA", "name": "Orange", "hex": "#E8641A", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "PLA", "name": "Purple", "hex": "#6A3FA0", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "PLA", "name": "Gray", "hex": "#7D7F7C", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "PETG", "name": "PETG Black", "hex": "#151515", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "PETG", "name": "PETG White", "hex": "#FAFAFA", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "PETG", "name": "PETG Red", "hex": "#A5202A", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "PETG", "name": "PETG Blue", "hex": "#22548F", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "ABS", "name": "ABS Black", "hex": "#181818", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "ABS", "name": "ABS White", "hex": "#F4F4F0", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "ABS", "name": "ABS Red", "hex": "#AE1C24", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
 
     # ------------------------------------------------------------------ #
     # Prusament                                                          #
@@ -110,19 +110,19 @@ _FILAMENTS: List[Dict[str, str]] = [
     # ------------------------------------------------------------------ #
     # Polymaker                                                          #
     # ------------------------------------------------------------------ #
-    {"brand": "Polymaker", "material": "PLA", "name": "PolyTerra Cotton White", "hex": "#F2EFE9", "url": "https://polymaker.com/product/polyterra-pla/"},
-    {"brand": "Polymaker", "material": "PLA", "name": "PolyTerra Charcoal Black", "hex": "#26262A", "url": "https://polymaker.com/product/polyterra-pla/"},
-    {"brand": "Polymaker", "material": "PLA", "name": "PolyTerra Army Red", "hex": "#9E2B25", "url": "https://polymaker.com/product/polyterra-pla/"},
-    {"brand": "Polymaker", "material": "PLA", "name": "PolyTerra Sapphire Blue", "hex": "#1D4E89", "url": "https://polymaker.com/product/polyterra-pla/"},
-    {"brand": "Polymaker", "material": "PLA", "name": "PolyTerra Forest Green", "hex": "#2C6E49", "url": "https://polymaker.com/product/polyterra-pla/"},
-    {"brand": "Polymaker", "material": "PLA", "name": "PolyLite Yellow", "hex": "#F4C20D", "url": "https://polymaker.com/product/polylite-pla/"},
-    {"brand": "Polymaker", "material": "PLA", "name": "PolyTerra Muted Grey", "hex": "#8A8D8F", "url": "https://polymaker.com/product/polyterra-pla/"},
-    {"brand": "Polymaker", "material": "PETG", "name": "PolyLite PETG Black", "hex": "#161616", "url": "https://polymaker.com/product/polylite-petg/"},
-    {"brand": "Polymaker", "material": "PETG", "name": "PolyLite PETG White", "hex": "#F7F7F3", "url": "https://polymaker.com/product/polylite-petg/"},
-    {"brand": "Polymaker", "material": "PETG", "name": "PolyLite PETG Teal", "hex": "#008C99", "url": "https://polymaker.com/product/polylite-petg/"},
-    {"brand": "Polymaker", "material": "ABS", "name": "PolyLite ABS Black", "hex": "#131313", "url": "https://polymaker.com/product/polylite-abs/"},
-    {"brand": "Polymaker", "material": "ABS", "name": "PolyLite ABS White", "hex": "#F4F4EF", "url": "https://polymaker.com/product/polylite-abs/"},
-    {"brand": "Polymaker", "material": "ABS", "name": "PolyLite ABS Orange", "hex": "#EC6B1F", "url": "https://polymaker.com/product/polylite-abs/"},
+    {"brand": "Polymaker", "material": "PLA", "name": "PolyTerra Cotton White", "hex": "#F2EFE9", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "PLA", "name": "PolyTerra Charcoal Black", "hex": "#26262A", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "PLA", "name": "PolyTerra Army Red", "hex": "#9E2B25", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "PLA", "name": "PolyTerra Sapphire Blue", "hex": "#1D4E89", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "PLA", "name": "PolyTerra Forest Green", "hex": "#2C6E49", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "PLA", "name": "PolyLite Yellow", "hex": "#F4C20D", "url": "https://shop.polymaker.com/products/polylite-pla"},
+    {"brand": "Polymaker", "material": "PLA", "name": "PolyTerra Muted Grey", "hex": "#8A8D8F", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "PETG", "name": "PolyLite PETG Black", "hex": "#161616", "url": "https://shop.polymaker.com/products/polymaker-petg"},
+    {"brand": "Polymaker", "material": "PETG", "name": "PolyLite PETG White", "hex": "#F7F7F3", "url": "https://shop.polymaker.com/products/polymaker-petg"},
+    {"brand": "Polymaker", "material": "PETG", "name": "PolyLite PETG Teal", "hex": "#008C99", "url": "https://shop.polymaker.com/products/polymaker-petg"},
+    {"brand": "Polymaker", "material": "ABS", "name": "PolyLite ABS Black", "hex": "#131313", "url": "https://shop.polymaker.com/products/polylite-abs"},
+    {"brand": "Polymaker", "material": "ABS", "name": "PolyLite ABS White", "hex": "#F4F4EF", "url": "https://shop.polymaker.com/products/polylite-abs"},
+    {"brand": "Polymaker", "material": "ABS", "name": "PolyLite ABS Orange", "hex": "#EC6B1F", "url": "https://shop.polymaker.com/products/polylite-abs"},
 
     # ------------------------------------------------------------------ #
     # Overture                                                           #
@@ -184,10 +184,10 @@ _FILAMENTS: List[Dict[str, str]] = [
     # ------------------------------------------------------------------ #
     # Atomic Filament                                                    #
     # ------------------------------------------------------------------ #
-    {"brand": "Atomic Filament", "material": "PLA", "name": "Max White", "hex": "#FBFBF8", "url": "https://atomicfilament.com/collections/pla-filament"},
-    {"brand": "Atomic Filament", "material": "PLA", "name": "Midnight Black", "hex": "#0C0C0E", "url": "https://atomicfilament.com/collections/pla-filament"},
-    {"brand": "Atomic Filament", "material": "PLA", "name": "Fire Red", "hex": "#C51726", "url": "https://atomicfilament.com/collections/pla-filament"},
-    {"brand": "Atomic Filament", "material": "PETG", "name": "PETG Black", "hex": "#131315", "url": "https://atomicfilament.com/collections/petg-filament"},
+    {"brand": "Atomic Filament", "material": "PLA", "name": "Max White", "hex": "#FBFBF8", "url": "https://atomicfilament.com/"},
+    {"brand": "Atomic Filament", "material": "PLA", "name": "Midnight Black", "hex": "#0C0C0E", "url": "https://atomicfilament.com/"},
+    {"brand": "Atomic Filament", "material": "PLA", "name": "Fire Red", "hex": "#C51726", "url": "https://atomicfilament.com/"},
+    {"brand": "Atomic Filament", "material": "PETG", "name": "PETG Black", "hex": "#131315", "url": "https://atomicfilament.com/collections/petg-3d-printer-filament-us-made-with-free-shipping"},
 
     # ------------------------------------------------------------------ #
     # IC3D                                                               #
@@ -199,18 +199,18 @@ _FILAMENTS: List[Dict[str, str]] = [
     # ------------------------------------------------------------------ #
     # Amazon Basics (budget)                                             #
     # ------------------------------------------------------------------ #
-    {"brand": "Amazon Basics", "material": "PLA", "name": "White", "hex": "#F6F6F2", "url": "https://www.amazon.com/stores/AmazonBasics/page"},
-    {"brand": "Amazon Basics", "material": "PLA", "name": "Black", "hex": "#171717", "url": "https://www.amazon.com/stores/AmazonBasics/page"},
-    {"brand": "Amazon Basics", "material": "PLA", "name": "Red", "hex": "#BE212C", "url": "https://www.amazon.com/stores/AmazonBasics/page"},
-    {"brand": "Amazon Basics", "material": "PLA", "name": "Blue", "hex": "#20599E", "url": "https://www.amazon.com/stores/AmazonBasics/page"},
+    {"brand": "Amazon Basics", "material": "PLA", "name": "White", "hex": "#F6F6F2", "url": "https://www.amazon.com/s?k=3d+printer+filament+pla"},
+    {"brand": "Amazon Basics", "material": "PLA", "name": "Black", "hex": "#171717", "url": "https://www.amazon.com/s?k=3d+printer+filament+pla"},
+    {"brand": "Amazon Basics", "material": "PLA", "name": "Red", "hex": "#BE212C", "url": "https://www.amazon.com/s?k=3d+printer+filament+pla"},
+    {"brand": "Amazon Basics", "material": "PLA", "name": "Blue", "hex": "#20599E", "url": "https://www.amazon.com/s?k=3d+printer+filament+pla"},
 
     # ------------------------------------------------------------------ #
     # Inland (Micro Center)                                              #
     # ------------------------------------------------------------------ #
-    {"brand": "Inland", "material": "PLA", "name": "White", "hex": "#F7F7F3", "url": "https://www.microcenter.com/search/search_results.aspx?N=4294818929"},
-    {"brand": "Inland", "material": "PLA", "name": "Black", "hex": "#151515", "url": "https://www.microcenter.com/search/search_results.aspx?N=4294818929"},
-    {"brand": "Inland", "material": "PLA", "name": "Red", "hex": "#C11F2A", "url": "https://www.microcenter.com/search/search_results.aspx?N=4294818929"},
-    {"brand": "Inland", "material": "PETG", "name": "PETG Black", "hex": "#141416", "url": "https://www.microcenter.com/search/search_results.aspx?N=4294818929"},
+    {"brand": "Inland", "material": "PLA", "name": "White", "hex": "#F7F7F3", "url": "https://www.microcenter.com/site/content/inland%20filament.aspx"},
+    {"brand": "Inland", "material": "PLA", "name": "Black", "hex": "#151515", "url": "https://www.microcenter.com/site/content/inland%20filament.aspx"},
+    {"brand": "Inland", "material": "PLA", "name": "Red", "hex": "#C11F2A", "url": "https://www.microcenter.com/site/content/inland%20filament.aspx"},
+    {"brand": "Inland", "material": "PETG", "name": "PETG Black", "hex": "#141416", "url": "https://www.microcenter.com/site/content/inland%20filament.aspx"},
 
     # ------------------------------------------------------------------ #
     # Elegoo                                                             #
@@ -231,9 +231,9 @@ _FILAMENTS: List[Dict[str, str]] = [
     # ------------------------------------------------------------------ #
     # 3D Solutech                                                        #
     # ------------------------------------------------------------------ #
-    {"brand": "3D Solutech", "material": "PLA", "name": "Natural Clear", "hex": "#EDEDE4", "url": "https://www.3dsolutech.com/"},
-    {"brand": "3D Solutech", "material": "PLA", "name": "Real Black", "hex": "#131313", "url": "https://www.3dsolutech.com/"},
-    {"brand": "3D Solutech", "material": "PLA", "name": "Apple Green", "hex": "#4FA83D", "url": "https://www.3dsolutech.com/"},
+    {"brand": "3D Solutech", "material": "PLA", "name": "Natural Clear", "hex": "#EDEDE4", "url": "https://www.amazon.com/s?k=3d+solutech+pla+filament"},
+    {"brand": "3D Solutech", "material": "PLA", "name": "Real Black", "hex": "#131313", "url": "https://www.amazon.com/s?k=3d+solutech+pla+filament"},
+    {"brand": "3D Solutech", "material": "PLA", "name": "Apple Green", "hex": "#4FA83D", "url": "https://www.amazon.com/s?k=3d+solutech+pla+filament"},
 ]
 
 
