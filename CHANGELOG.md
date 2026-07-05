@@ -4,6 +4,14 @@ All notable changes to the 3D Print Color Palette Matcher project.
 
 ## [v1.0] - 2026-07-05
 
+### 🔧 Windows Installer (PR #4)
+- **Proper Windows installer** built with Inno Setup (`3DColorPaletteMatcher-Setup.exe`)
+- Creates a **desktop icon** with the custom app logo automatically
+- Adds a **Start Menu** shortcut
+- Registers an **uninstaller** in **Settings → Apps** ("Programs and Features")
+- Installs per-user (no admin rights required)
+- Portable versions still available for all platforms (`Portable-*.exe`/`Portable-*`)
+
 ### 🎨 App Icon & Desktop Integration (PR #2)
 - **Custom app icon** with 3D filament spool + rainbow color arc design
 - Platform-specific icon formats:
