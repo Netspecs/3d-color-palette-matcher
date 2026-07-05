@@ -9,6 +9,9 @@ build/
 dist/
 *.manifest
 
+# Windows installer output (built by Inno Setup)
+installer_output/
+
 # Virtual environments
 .venv/
 venv/
