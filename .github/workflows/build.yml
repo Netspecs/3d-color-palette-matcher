@@ -1,0 +1,68 @@
+name: Build executables
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset_name: 3DColorPaletteMatcher-windows.exe
+            bin_path: dist/3DColorPaletteMatcher.exe
+          - os: macos-latest
+            asset_name: 3DColorPaletteMatcher-macos
+            bin_path: dist/3DColorPaletteMatcher
+          - os: ubuntu-latest
+            asset_name: 3DColorPaletteMatcher-linux
+            bin_path: dist/3DColorPaletteMatcher
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller build.spec --noconfirm
+
+      - name: Rename artifact
+        shell: bash
+        run: |
+          mkdir -p out
+          cp "${{ matrix.bin_path }}" "out/${{ matrix.asset_name }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: out/${{ matrix.asset_name }}
+
+      - name: Attach to Release
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/${{ matrix.asset_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
