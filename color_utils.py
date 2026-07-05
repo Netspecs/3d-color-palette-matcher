@@ -69,6 +69,31 @@ def delta_e(lab1: np.ndarray, lab2: np.ndarray) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
+# Brightness / saturation adjustment (HSV based)
+# ---------------------------------------------------------------------------
+def adjust_rgb(rgb: Tuple[int, int, int], brightness: float = 1.0,
+               saturation: float = 1.0) -> Tuple[int, int, int]:
+    """
+    Adjust the brightness and saturation of an ``(r, g, b)`` color.
+
+    Args:
+        rgb: Source color, channels 0-255.
+        brightness: Multiplier for the HSV "value" channel (1.0 = unchanged).
+        saturation: Multiplier for the HSV "saturation" channel (1.0 = unchanged).
+
+    Returns:
+        The adjusted ``(r, g, b)`` tuple with channels clamped to 0-255.
+    """
+    import colorsys
+    r, g, b = (c / 255.0 for c in rgb)
+    h, s, v = colorsys.rgb_to_hsv(r, g, b)
+    s = max(0.0, min(1.0, s * saturation))
+    v = max(0.0, min(1.0, v * brightness))
+    r, g, b = colorsys.hsv_to_rgb(h, s, v)
+    return (int(round(r * 255)), int(round(g * 255)), int(round(b * 255)))
+
+
+# ---------------------------------------------------------------------------
 # K-means clustering (NumPy implementation)
 # ---------------------------------------------------------------------------
 def _kmeans(data: np.ndarray, k: int, max_iters: int = 50, seed: int = 42):

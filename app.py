@@ -18,9 +18,10 @@ import os
 import threading
 import webbrowser
 from tkinter import (
-    Tk, Frame, Label, Button, Canvas, StringVar, IntVar, OptionMenu,
-    Scale, HORIZONTAL, filedialog, messagebox, Scrollbar, LEFT, RIGHT, BOTH,
-    X, Y, TOP, W, E, VERTICAL, END,
+    Tk, Frame, Label, Button, Canvas, StringVar, IntVar, DoubleVar, OptionMenu,
+    Entry, Toplevel, Listbox, Scale, HORIZONTAL, filedialog, messagebox,
+    simpledialog, Scrollbar, LEFT, RIGHT, BOTH, X, Y, TOP, W, E, VERTICAL, END,
+    SINGLE,
 )
 from tkinter import ttk
 
@@ -28,6 +29,9 @@ from PIL import Image, ImageTk
 
 import color_utils as cu
 import filament_database as fdb
+import cost as cost_calc
+import palette_store as pstore
+import slicer_export as sexport
 
 # Optional drag-and-drop support (graceful fallback if not installed)
 try:
@@ -72,6 +76,9 @@ class ColorMatcherApp:
         self.num_colors = IntVar(value=4)
         self.brand_var = StringVar(value="All")
         self.material_var = StringVar(value="All")
+        self.brightness = DoubleVar(value=1.0)
+        self.saturation = DoubleVar(value=1.0)
+        self.grams_var = StringVar(value="50")
 
         self._build_ui()
 
@@ -81,6 +88,7 @@ class ColorMatcherApp:
     def _build_ui(self):
         self._build_header()
         self._build_controls()
+        self._build_controls_row2()
         self._build_body()
         self._build_statusbar()
 
@@ -143,6 +151,48 @@ class ColorMatcherApp:
             padx=14, pady=6, cursor="hand2", bd=0, state="disabled",
         )
         self.match_btn.pack(side=RIGHT, padx=(0, 8))
+
+    def _build_controls_row2(self):
+        bar = Frame(self.root, bg=BG)
+        bar.pack(side=TOP, fill=X, padx=12, pady=(0, 4))
+
+        # Brightness / saturation adjustment (applied to extracted colors)
+        Label(bar, text="Brightness:", bg=BG, fg=FG, font=(FONT, 9)).pack(side=LEFT, padx=(0, 2))
+        Scale(bar, from_=0.5, to=1.5, resolution=0.05, orient=HORIZONTAL,
+              variable=self.brightness, bg=BG, fg=FG, highlightthickness=0,
+              troughcolor=BG_CARD, activebackground=ACCENT, length=110,
+              showvalue=True).pack(side=LEFT)
+
+        Label(bar, text="Saturation:", bg=BG, fg=FG, font=(FONT, 9)).pack(side=LEFT, padx=(12, 2))
+        Scale(bar, from_=0.0, to=2.0, resolution=0.05, orient=HORIZONTAL,
+              variable=self.saturation, bg=BG, fg=FG, highlightthickness=0,
+              troughcolor=BG_CARD, activebackground=ACCENT, length=110,
+              showvalue=True).pack(side=LEFT)
+
+        # Print weight for the cost estimate
+        Label(bar, text="Print weight (g):", bg=BG, fg=FG,
+              font=(FONT, 9)).pack(side=LEFT, padx=(16, 2))
+        grams_entry = Entry(bar, textvariable=self.grams_var, width=6, bg=BG_CARD,
+                            fg=FG, insertbackground=FG, relief="flat",
+                            font=(FONT, 10), justify="center")
+        grams_entry.pack(side=LEFT)
+        grams_entry.bind("<Return>", lambda e: self._refresh_cost())
+
+        # Saved palettes
+        self.save_btn = Button(
+            bar, text="⭐  Save Palette", command=self.save_current_palette,
+            bg=BG_CARD, fg=FG, activebackground=BG_PANEL, activeforeground=FG,
+            relief="flat", font=(FONT, 9), padx=10, pady=4, cursor="hand2", bd=0,
+            state="disabled",
+        )
+        self.save_btn.pack(side=RIGHT)
+
+        self.load_pal_btn = Button(
+            bar, text="📁  Saved Palettes", command=self.open_saved_palettes,
+            bg=BG_CARD, fg=FG, activebackground=BG_PANEL, activeforeground=FG,
+            relief="flat", font=(FONT, 9), padx=10, pady=4, cursor="hand2", bd=0,
+        )
+        self.load_pal_btn.pack(side=RIGHT, padx=(0, 8))
 
     def _make_option(self, parent, var, values):
         menu = OptionMenu(parent, var, *values)
@@ -288,6 +338,16 @@ class ColorMatcherApp:
         try:
             n = self.num_colors.get()
             extracted = cu.extract_colors(self.image_path, n)
+
+            # Optional brightness / saturation tweak on the extracted colors
+            bright = self.brightness.get()
+            sat = self.saturation.get()
+            if abs(bright - 1.0) > 1e-3 or abs(sat - 1.0) > 1e-3:
+                for color in extracted:
+                    adj = cu.adjust_rgb(color["rgb"], brightness=bright, saturation=sat)
+                    color["rgb"] = adj
+                    color["hex"] = cu.rgb_to_hex(adj)
+
             brand = self.brand_var.get()
             material = self.material_var.get()
 
@@ -302,7 +362,7 @@ class ColorMatcherApp:
             self.results = results
             self.root.after(0, self._display_results)
         except Exception as exc:
-            self.root.after(0, lambda: self._matching_error(exc))
+            self.root.after(0, lambda e=exc: self._matching_error(e))
 
     def _matching_error(self, exc):
         messagebox.showerror("Error", f"Something went wrong while matching:\n{exc}")
@@ -324,6 +384,7 @@ class ColorMatcherApp:
 
     def _display_results(self):
         self._clear_results()
+        self._build_cost_card()
         no_match_note = ""
         for idx, (color, matches) in enumerate(self.results, start=1):
             self._build_color_card(idx, color, matches)
@@ -333,10 +394,53 @@ class ColorMatcherApp:
         self.match_btn.config(state="normal")
         self.load_btn.config(state="normal")
         self.export_btn.config(state="normal")
+        self.save_btn.config(state="normal")
         self.status.set(
             f"Matched {len(self.results)} color(s) against {len(self.filaments)} filaments{no_match_note}."
         )
         self.results_canvas.yview_moveto(0)
+
+    def _parse_grams(self):
+        try:
+            return max(0.0, float(self.grams_var.get()))
+        except (ValueError, TypeError):
+            return 0.0
+
+    def _build_cost_card(self):
+        """Render the estimated filament cost summary at the top of results."""
+        grams = self._parse_grams()
+        estimate = cost_calc.estimate_costs(self.results, grams)
+
+        card = Frame(self.results_inner, bg=BG_PANEL)
+        card.pack(fill=X, pady=(2, 8), padx=2)
+
+        top = Frame(card, bg=BG_PANEL)
+        top.pack(fill=X, padx=12, pady=(10, 4))
+        Label(top, text="💰  Estimated filament cost", bg=BG_PANEL, fg=FG,
+              font=(FONT, 11, "bold")).pack(side=LEFT)
+        Label(top, text=f"${estimate['total_cost']:.2f}", bg=BG_PANEL, fg=ACCENT,
+              font=(FONT, 13, "bold")).pack(side=RIGHT)
+
+        Label(card, text=f"For a {estimate['total_grams']:.0f} g print, using the best "
+                         f"match per color (edit 'Print weight' above and re-match to update).",
+              bg=BG_PANEL, fg=FG_MUTED, font=(FONT, 8), justify="left",
+              wraplength=560).pack(anchor=W, padx=12, pady=(0, 8))
+
+        for row in estimate["breakdown"]:
+            line = Frame(card, bg=BG_PANEL)
+            line.pack(fill=X, padx=12, pady=1)
+            Canvas(line, width=16, height=16, bg=row["hex"], highlightthickness=1,
+                   highlightbackground="#11121a").pack(side=LEFT)
+            Label(line, text=f"  {row['percentage']:.0f}%  •  {row['grams']:.1f} g  •  {row['filament']}",
+                  bg=BG_PANEL, fg=FG_MUTED, font=(FONT, 8), anchor=W).pack(side=LEFT)
+            Label(line, text=f"${row['cost']:.2f}", bg=BG_PANEL, fg=FG,
+                  font=(FONT, 9)).pack(side=RIGHT)
+        Frame(card, bg=BG_PANEL, height=6).pack()
+
+    def _refresh_cost(self):
+        """Re-render results (recomputes cost) when the weight changes."""
+        if self.results:
+            self._display_results()
 
     def _build_color_card(self, idx, color, matches):
         card = Frame(self.results_inner, bg=BG_CARD)
@@ -415,8 +519,14 @@ class ColorMatcherApp:
         path = filedialog.asksaveasfilename(
             title="Export palette",
             defaultextension=".json",
-            filetypes=[("JSON file", "*.json"), ("Text file", "*.txt"),
-                       ("HTML file", "*.html")],
+            filetypes=[
+                ("JSON file", "*.json"),
+                ("Readable text", "*.txt"),
+                ("HTML page", "*.html"),
+                ("CSV spreadsheet", "*.csv"),
+                ("GIMP/Inkscape palette", "*.gpl"),
+                ("Slicer filament config", "*.ini"),
+            ],
             initialfile="filament_palette",
         )
         if not path:
@@ -427,6 +537,8 @@ class ColorMatcherApp:
                 self._export_txt(path)
             elif ext == ".html":
                 self._export_html(path)
+            elif ext in (".csv", ".gpl", ".ini"):
+                sexport.export_to_file(path, self.results)
             else:
                 self._export_json(path)
             self.status.set(f"Palette exported to {os.path.basename(path)}.")
@@ -448,10 +560,16 @@ class ColorMatcherApp:
                         "brand": m["brand"], "material": m["material"],
                         "name": m["name"], "hex": m["hex"], "rgb": m["rgb"],
                         "delta_e": m["distance"], "url": m["url"],
+                        "price_per_kg": m.get("price_per_kg"),
                     } for m in matches
                 ],
             })
-        return {"source_image": os.path.basename(self.image_path or ""), "palette": data}
+        estimate = cost_calc.estimate_costs(self.results, self._parse_grams())
+        return {
+            "source_image": os.path.basename(self.image_path or ""),
+            "cost_estimate": estimate,
+            "palette": data,
+        }
 
     def _export_json(self, path):
         with open(path, "w", encoding="utf-8") as fh:
@@ -505,6 +623,113 @@ class ColorMatcherApp:
         )
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(html)
+
+    # ------------------------------------------------------------------ #
+    # Saved / favorite palettes
+    # ------------------------------------------------------------------ #
+    def save_current_palette(self):
+        if not self.results:
+            return
+        name = simpledialog.askstring(
+            "Save palette", "Name this palette:", parent=self.root,
+            initialvalue=os.path.splitext(os.path.basename(self.image_path or "My palette"))[0],
+        )
+        if not name:
+            return
+        try:
+            pstore.save_palette(name, self._payload())
+            self.status.set(f"Saved palette '{name}'.")
+            messagebox.showinfo("Saved", f"Palette '{name}' saved.\n"
+                                          "Open it any time from 'Saved Palettes'.")
+        except Exception as exc:
+            messagebox.showerror("Save failed", str(exc))
+
+    def open_saved_palettes(self):
+        names = pstore.list_names()
+        win = Toplevel(self.root)
+        win.title("Saved Palettes")
+        win.configure(bg=BG)
+        win.geometry("380x360")
+        win.transient(self.root)
+
+        Label(win, text="Saved Palettes", bg=BG, fg=FG,
+              font=(FONT, 12, "bold")).pack(anchor=W, padx=12, pady=(12, 6))
+
+        if not names:
+            Label(win, text="No palettes saved yet.\nMatch an image and click "
+                            "'⭐ Save Palette' to store one.",
+                  bg=BG, fg=FG_MUTED, font=(FONT, 10), justify="left").pack(padx=12, pady=20)
+            return
+
+        listbox = Listbox(win, selectmode=SINGLE, bg=BG_CARD, fg=FG,
+                          selectbackground=ACCENT, relief="flat", font=(FONT, 10),
+                          highlightthickness=0, activestyle="none")
+        for n in names:
+            listbox.insert(END, n)
+        listbox.pack(fill=BOTH, expand=True, padx=12, pady=6)
+        listbox.selection_set(0)
+
+        btns = Frame(win, bg=BG)
+        btns.pack(fill=X, padx=12, pady=(0, 12))
+
+        def _selected_name():
+            sel = listbox.curselection()
+            return listbox.get(sel[0]) if sel else None
+
+        def _load():
+            name = _selected_name()
+            if name:
+                self._load_palette_record(pstore.get_palette(name))
+                win.destroy()
+
+        def _delete():
+            name = _selected_name()
+            if name and messagebox.askyesno("Delete", f"Delete palette '{name}'?", parent=win):
+                pstore.delete_palette(name)
+                listbox.delete(listbox.curselection()[0])
+
+        Button(btns, text="Open", command=_load, bg=ACCENT, fg="white",
+               activebackground=ACCENT_DARK, activeforeground="white", relief="flat",
+               font=(FONT, 10, "bold"), padx=12, pady=4, cursor="hand2", bd=0).pack(side=LEFT)
+        Button(btns, text="Delete", command=_delete, bg=BG_CARD, fg="#e06c6c",
+               activebackground=BG_PANEL, activeforeground="#e06c6c", relief="flat",
+               font=(FONT, 10), padx=12, pady=4, cursor="hand2", bd=0).pack(side=LEFT, padx=8)
+        Button(btns, text="Close", command=win.destroy, bg=BG_CARD, fg=FG,
+               activebackground=BG_PANEL, activeforeground=FG, relief="flat",
+               font=(FONT, 10), padx=12, pady=4, cursor="hand2", bd=0).pack(side=RIGHT)
+
+    def _load_palette_record(self, record):
+        """Rebuild the results view from a stored palette record."""
+        if not record:
+            return
+        results = []
+        for entry in record.get("palette", []):
+            ec = entry.get("extracted_color", {})
+            color = {
+                "hex": ec.get("hex", "#000000"),
+                "rgb": tuple(ec.get("rgb", (0, 0, 0))),
+                "percentage": ec.get("percentage", 0),
+            }
+            matches = []
+            for m in entry.get("matches", []):
+                match = dict(m)
+                match["rgb"] = tuple(m.get("rgb", (0, 0, 0)))
+                match["distance"] = m.get("delta_e", m.get("distance", 0))
+                match.setdefault(
+                    "price_per_kg",
+                    fdb.get_price_per_kg(m.get("brand", ""), m.get("material", "")),
+                )
+                matches.append(match)
+            results.append((color, matches))
+
+        self.results = results
+        self.extracted = [c for c, _ in results]
+        self.image_path = record.get("source_image", "") or self.image_path
+        self.path_label.config(text=f"Loaded palette: {record.get('name', '')}")
+        self._display_results()
+        self.export_btn.config(state="normal")
+        self.save_btn.config(state="normal")
+        self.status.set(f"Loaded saved palette '{record.get('name', '')}'.")
 
 
 def main():
