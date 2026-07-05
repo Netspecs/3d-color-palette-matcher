@@ -6,7 +6,7 @@ then follow the steps for your operating system.
 
 ---
 
-## 🪟 Windows!
+## 🪟 Windows
 
 **Recommended — use the installer (⭐ easiest, adds a desktop icon + uninstaller):**
 1. Download **`3DColorPaletteMatcher-Setup.exe`** from the Releases page.
