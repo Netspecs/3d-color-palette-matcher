@@ -19,18 +19,26 @@ Snapmaker**, and other multi-material systems.
 
 ## 📥 Download
 
-**No Python? No problem.** Grab a ready-to-run build — no installation needed:
+**No Python? No problem.** Get the app in seconds:
 
-1. Go to the [**Releases**](../../releases) page (or the latest
-   [**Actions run**](../../actions) for bleeding-edge builds).
-2. Download the file for your OS:
-   - Windows → `3DColorPaletteMatcher-windows.exe`
-   - macOS → `3DColorPaletteMatcher-macos`
-   - Linux → `3DColorPaletteMatcher-linux`
-3. Double-click to run. That's it! 🎉
+### 🪟 Windows (recommended — installer with desktop icon)
+1. Go to [**Releases**](../../releases) and download **`3DColorPaletteMatcher-Setup.exe`**.
+2. Run the installer — it will:
+   - 🖥️ Create a **desktop icon** (with the custom app logo)
+   - 📂 Add a **Start Menu** shortcut
+   - 🗑️ Register an **uninstaller** in Settings → Apps (a.k.a. "Programs and Features")
+3. No admin password needed (installs per-user).
 
-> Builds are produced automatically by GitHub Actions for every release.
-> Prefer to run from source or build it yourself? See [Installation](#-installation).
+### 🍎 macOS / 🐧 Linux / 🪟 Windows Portable
+Download the standalone executable for your OS from [**Releases**](../../releases):
+- **Windows** → `Portable-Windows.exe` (runs directly, no install)
+- **macOS** → `Portable-macOS`
+- **Linux** → `Portable-Linux`
+
+Double-click to run. No install needed! 🎉
+
+> All builds are produced automatically by GitHub Actions and include the custom icon + working purchase links.  
+> Prefer to run from source? See [Installation](#-installation).
 
 ---
 
