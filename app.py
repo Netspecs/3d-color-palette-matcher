@@ -2,13 +2,15 @@
 3D Print Color Palette Matcher
 ==============================
 
-A desktop application that extracts the dominant colors from an image and
-matches them to real-world 3D printing filament colors from popular brands
-(Bambu Lab, Hatchbox, Prusament, eSun, Polymaker, and more), covering PLA,
-ABS and PETG.
+A desktop application that extracts the dominant colors from an image (or takes
+colors you type in directly) and matches them to real-world 3D printing filament
+colors from popular brands (Bambu Lab, Hatchbox, Prusament, eSun, Polymaker, and
+more), covering PLA, PETG, ABS, TPU, Silk, Matte and Wood.
 
-Ideal for planning multi-color prints on Bambu Lab AMS (4 / 8 / 16 color),
-Snapmaker and other multi-material systems.
+Matching uses the perceptual CIEDE2000 color-difference formula. It can plan
+slot assignments for multi-material systems (Bambu AMS, Prusa MMU3, tool
+changers / multi-head, IDEX / dual, or manual swaps) and render a preview of
+your image in the matched filament colors.
 
 Run with:  python app.py
 """
@@ -20,12 +22,13 @@ import threading
 import webbrowser
 from tkinter import (
     Tk, Frame, Label, Button, Canvas, StringVar, IntVar, DoubleVar, OptionMenu,
-    Entry, Toplevel, Listbox, Scale, HORIZONTAL, filedialog, messagebox,
-    simpledialog, Scrollbar, LEFT, RIGHT, BOTH, X, Y, TOP, W, E, VERTICAL, END,
-    SINGLE,
+    Entry, Text, Toplevel, Listbox, Scale, Spinbox, HORIZONTAL, filedialog,
+    messagebox, simpledialog, colorchooser, Scrollbar, LEFT, RIGHT, BOTH, X, Y,
+    TOP, BOTTOM, W, E, VERTICAL, END, SINGLE,
 )
 from tkinter import ttk
 
+import numpy as np
 from PIL import Image, ImageTk
 
 import color_utils as cu
@@ -33,6 +36,26 @@ import filament_database as fdb
 import cost as cost_calc
 import palette_store as pstore
 import slicer_export as sexport
+
+APP_VERSION = "2.0"
+
+# ---------------------------------------------------------------------------
+# Multi-material print systems for the Print Planner.
+#   slots  : fixed number of filament slots (None = derived / custom)
+#   shared : True if all colors share ONE nozzle (=> purge/wipe waste on every
+#            tool change). False for independent-nozzle systems (IDEX, tool
+#            changers) which have little to no purge waste.
+# ---------------------------------------------------------------------------
+PRINT_SYSTEMS = {
+    "Bambu AMS — 4 slots": {"slots": 4, "shared": True},
+    "Bambu AMS — 8 slots (2× AMS)": {"slots": 8, "shared": True},
+    "Bambu AMS — 16 slots (4× AMS)": {"slots": 16, "shared": True},
+    "Prusa MMU3 — 5 slots": {"slots": 5, "shared": True},
+    "Tool changer / Multi-head": {"slots": None, "shared": False, "custom": True,
+                                  "default": 4, "max": 8},
+    "IDEX / Dual extruder — 2 slots": {"slots": 2, "shared": False},
+    "Manual filament swaps": {"slots": None, "shared": False, "manual": True},
+}
 
 # Optional drag-and-drop support (graceful fallback if not installed)
 try:
@@ -63,7 +86,7 @@ SUPPORTED_TYPES = [
 class ColorMatcherApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("3D Print Color Palette Matcher")
+        self.root.title(f"3D Print Color Palette Matcher v{APP_VERSION}")
         self.root.geometry("1080x760")
         self.root.minsize(940, 640)
         self.root.configure(bg=BG)
@@ -144,6 +167,13 @@ class ColorMatcherApp:
         )
         self.load_btn.pack(side=LEFT)
 
+        self.hex_btn = Button(
+            bar, text="🎨  Enter Colors", command=self.enter_colors_dialog,
+            bg=BG_CARD, fg=FG, activebackground=BG_PANEL, activeforeground=FG,
+            relief="flat", font=(FONT, 10), padx=12, pady=6, cursor="hand2", bd=0,
+        )
+        self.hex_btn.pack(side=LEFT, padx=(8, 0))
+
         # Number of colors
         Label(bar, text="Colors:", bg=BG, fg=FG, font=(FONT, 10)).pack(side=LEFT, padx=(18, 4))
         self.color_scale = Scale(
@@ -221,6 +251,23 @@ class ColorMatcherApp:
             relief="flat", font=(FONT, 9), padx=10, pady=4, cursor="hand2", bd=0,
         )
         self.load_pal_btn.pack(side=RIGHT, padx=(0, 8))
+
+        # Print planner + filament preview (enabled once colors are matched)
+        self.plan_btn = Button(
+            bar, text="🖨️  Plan Print", command=self.open_planner,
+            bg=BG_CARD, fg=FG, activebackground=BG_PANEL, activeforeground=FG,
+            relief="flat", font=(FONT, 9), padx=10, pady=4, cursor="hand2", bd=0,
+            state="disabled",
+        )
+        self.plan_btn.pack(side=RIGHT, padx=(0, 8))
+
+        self.preview_btn = Button(
+            bar, text="🖼️  Filament Preview", command=self.open_filament_preview,
+            bg=BG_CARD, fg=FG, activebackground=BG_PANEL, activeforeground=FG,
+            relief="flat", font=(FONT, 9), padx=10, pady=4, cursor="hand2", bd=0,
+            state="disabled",
+        )
+        self.preview_btn.pack(side=RIGHT, padx=(0, 8))
 
     def _make_option(self, parent, var, values):
         menu = OptionMenu(parent, var, *values)
@@ -423,6 +470,10 @@ class ColorMatcherApp:
         self.load_btn.config(state="normal")
         self.export_btn.config(state="normal")
         self.save_btn.config(state="normal")
+        self.plan_btn.config(state="normal" if self.results else "disabled")
+        # Filament preview needs the original image file on disk.
+        can_preview = bool(self.image_path) and os.path.isfile(self.image_path or "")
+        self.preview_btn.config(state="normal" if can_preview else "disabled")
         self.status.set(
             f"Matched {len(self.results)} color(s) against {len(self.filaments)} filaments{no_match_note}."
         )
@@ -528,15 +579,390 @@ class ColorMatcherApp:
 
     @staticmethod
     def _match_quality(distance):
+        # Thresholds calibrated for CIEDE2000 (ΔE2000), which runs noticeably
+        # smaller than the old CIE76 metric. Rough perceptual guide:
+        #   ΔE2000 < 1   -> difference not perceptible to the human eye
+        #   1-2          -> perceptible only on close inspection
+        #   2-3.5        -> perceptible at a glance
+        #   3.5-6        -> clearly different but a reasonable substitute
+        if distance <= 1:
+            return "perfect match"
         if distance <= 2:
             return "excellent match"
-        if distance <= 5:
+        if distance <= 3.5:
             return "great match"
-        if distance <= 10:
+        if distance <= 6:
             return "good match"
-        if distance <= 20:
+        if distance <= 10:
             return "fair match"
         return "approximate"
+
+    # ------------------------------------------------------------------ #
+    # Direct color input (no image required)
+    # ------------------------------------------------------------------ #
+    def enter_colors_dialog(self):
+        """Let the user type/paste hex colors or pick them, then match."""
+        win = Toplevel(self.root)
+        win.title("Enter Colors")
+        win.configure(bg=BG)
+        win.geometry("420x460")
+        win.transient(self.root)
+        win.grab_set()
+
+        Label(win, text="Enter colors manually", bg=BG, fg=FG,
+              font=(FONT, 13, "bold")).pack(anchor=W, padx=14, pady=(12, 2))
+        Label(win, text="Paste or type hex codes (one per line, or separated by\n"
+                        "commas/spaces). Example:  #E63946  1D3557  #A8DADC",
+              bg=BG, fg=FG_MUTED, font=(FONT, 9), justify="left").pack(anchor=W, padx=14)
+
+        text = Text(win, height=9, bg=BG_CARD, fg=FG, insertbackground=FG,
+                    relief="flat", font=("Consolas", 11), wrap="word")
+        text.pack(fill=X, padx=14, pady=8)
+        text.focus_set()
+
+        # Live-updating swatch preview of the parsed colors
+        swatch_wrap = Frame(win, bg=BG)
+        swatch_wrap.pack(fill=X, padx=14)
+        Label(swatch_wrap, text="Preview:", bg=BG, fg=FG_MUTED,
+              font=(FONT, 9)).pack(side=LEFT)
+        swatch_row = Frame(swatch_wrap, bg=BG)
+        swatch_row.pack(side=LEFT, padx=6)
+
+        def _refresh_swatches(*_):
+            for c in swatch_row.winfo_children():
+                c.destroy()
+            for rgb in self._parse_hex_text(text.get("1.0", END))[:16]:
+                Canvas(swatch_row, width=20, height=20, bg=cu.rgb_to_hex(rgb),
+                       highlightthickness=1, highlightbackground="#11121a").pack(side=LEFT, padx=1)
+
+        text.bind("<KeyRelease>", _refresh_swatches)
+
+        def _pick_color():
+            rgb, hex_str = colorchooser.askcolor(parent=win, title="Pick a color")
+            if hex_str:
+                current = text.get("1.0", END).strip()
+                text.insert(END, ("\n" if current else "") + hex_str.upper())
+                _refresh_swatches()
+
+        def _apply():
+            colors = self._parse_hex_text(text.get("1.0", END))
+            if not colors:
+                messagebox.showwarning("No colors", "Please enter at least one valid "
+                                       "hex color (e.g. #FF8800).", parent=win)
+                return
+            win.destroy()
+            self._match_manual_colors(colors)
+
+        btns = Frame(win, bg=BG)
+        btns.pack(fill=X, padx=14, pady=12, side=BOTTOM)
+        Button(btns, text="🎨  Pick a color…", command=_pick_color, bg=BG_CARD, fg=FG,
+               activebackground=BG_PANEL, activeforeground=FG, relief="flat",
+               font=(FONT, 10), padx=12, pady=5, cursor="hand2", bd=0).pack(side=LEFT)
+        Button(btns, text="Match Colors", command=_apply, bg=ACCENT, fg="white",
+               activebackground=ACCENT_DARK, activeforeground="white", relief="flat",
+               font=(FONT, 10, "bold"), padx=14, pady=5, cursor="hand2", bd=0).pack(side=RIGHT)
+        Button(btns, text="Cancel", command=win.destroy, bg=BG_CARD, fg=FG,
+               activebackground=BG_PANEL, activeforeground=FG, relief="flat",
+               font=(FONT, 10), padx=12, pady=5, cursor="hand2", bd=0).pack(side=RIGHT, padx=8)
+
+    @staticmethod
+    def _parse_hex_text(raw):
+        """Parse free-form text into a list of (r, g, b) tuples, ignoring junk."""
+        import re
+        tokens = re.split(r"[\s,;]+", raw.strip())
+        colors = []
+        for tok in tokens:
+            if not tok:
+                continue
+            try:
+                colors.append(cu.hex_to_rgb(tok))
+            except ValueError:
+                continue
+        return colors
+
+    def _match_manual_colors(self, colors):
+        """Build a palette from hand-entered colors and match to filaments."""
+        n = len(colors)
+        share = round(100.0 / n, 1) if n else 0.0
+        extracted = [
+            {"rgb": rgb, "hex": cu.rgb_to_hex(rgb), "percentage": share}
+            for rgb in colors
+        ]
+
+        brand = self.brand_var.get()
+        material = self.material_var.get()
+        results = []
+        for color in extracted:
+            matches = cu.match_filaments(
+                color["rgb"], self.filaments, top_n=3,
+                brand_filter=brand, material_filter=material,
+            )
+            results.append((color, matches))
+
+        # Manual colors aren't tied to an image file.
+        self.image_path = None
+        self.preview_img = None
+        self.preview_label.config(image="", text="Colors entered manually\n(no image)")
+        self.path_label.config(text=f"{n} color(s) entered manually")
+        self.extracted = extracted
+        self.results = results
+        self.num_colors.set(min(16, max(1, n)))
+        self._display_results()
+
+    # ------------------------------------------------------------------ #
+    # Print system planner
+    # ------------------------------------------------------------------ #
+    def open_planner(self):
+        """Assign the matched colors to the slots of a chosen print system."""
+        if not self.results:
+            return
+        win = Toplevel(self.root)
+        win.title("Print System Planner")
+        win.configure(bg=BG)
+        win.geometry("560x640")
+        win.transient(self.root)
+
+        Label(win, text="🖨️  Print System Planner", bg=BG, fg=FG,
+              font=(FONT, 14, "bold")).pack(anchor=W, padx=16, pady=(14, 2))
+        Label(win, text="Assign your matched colors to filament slots. Colors are "
+                        "ordered by how much of the image they cover.",
+              bg=BG, fg=FG_MUTED, font=(FONT, 9), justify="left",
+              wraplength=520).pack(anchor=W, padx=16)
+
+        ctrl = Frame(win, bg=BG)
+        ctrl.pack(fill=X, padx=16, pady=10)
+
+        Label(ctrl, text="System:", bg=BG, fg=FG, font=(FONT, 10)).pack(side=LEFT)
+        system_var = StringVar(value=next(iter(PRINT_SYSTEMS)))
+        opt = OptionMenu(ctrl, system_var, *PRINT_SYSTEMS.keys())
+        opt.configure(bg=BG_CARD, fg=FG, activebackground=ACCENT,
+                      activeforeground="white", relief="flat", font=(FONT, 10),
+                      highlightthickness=0, bd=0, width=26, cursor="hand2")
+        opt["menu"].configure(bg=BG_CARD, fg=FG, activebackground=ACCENT)
+        opt.pack(side=LEFT, padx=8)
+
+        heads_lbl = Label(ctrl, text="Heads:", bg=BG, fg=FG, font=(FONT, 10))
+        heads_var = IntVar(value=4)
+        heads_spin = Spinbox(ctrl, from_=2, to=8, width=4, textvariable=heads_var,
+                             bg=BG_CARD, fg=FG, buttonbackground=BG_CARD,
+                             relief="flat", font=(FONT, 10), justify="center")
+
+        plan_area = Frame(win, bg=BG)
+        plan_area.pack(fill=BOTH, expand=True, padx=16, pady=(4, 12))
+
+        def _toggle_heads(*_):
+            spec = PRINT_SYSTEMS[system_var.get()]
+            if spec.get("custom"):
+                heads_lbl.pack(side=LEFT, padx=(12, 2))
+                heads_spin.pack(side=LEFT)
+            else:
+                heads_lbl.pack_forget()
+                heads_spin.pack_forget()
+            _render_plan()
+
+        def _render_plan():
+            for c in plan_area.winfo_children():
+                c.destroy()
+            spec = PRINT_SYSTEMS[system_var.get()]
+            n_colors = len(self.results)
+
+            if spec.get("manual"):
+                slots = n_colors
+            elif spec.get("custom"):
+                slots = int(heads_var.get())
+            else:
+                slots = spec["slots"]
+
+            plan, overflow = self._build_slot_plan(slots, spec.get("manual", False))
+
+            # Summary line
+            summary = (f"{n_colors} color(s) → {len(plan)} slot(s) used"
+                       + (f", {slots} available" if not spec.get("manual") else ""))
+            Label(plan_area, text=summary, bg=BG, fg=FG,
+                  font=(FONT, 10, "bold")).pack(anchor=W, pady=(0, 6))
+
+            # Scrollable slot list
+            canv = Canvas(plan_area, bg=BG, highlightthickness=0)
+            sb = Scrollbar(plan_area, orient=VERTICAL, command=canv.yview)
+            inner = Frame(canv, bg=BG)
+            inner.bind("<Configure>", lambda e: canv.configure(scrollregion=canv.bbox("all")))
+            iw = canv.create_window((0, 0), window=inner, anchor="nw")
+            canv.bind("<Configure>", lambda e: canv.itemconfig(iw, width=e.width))
+            canv.configure(yscrollcommand=sb.set)
+            canv.pack(side=LEFT, fill=BOTH, expand=True)
+            sb.pack(side=RIGHT, fill=Y)
+
+            for slot_no, (color, match) in enumerate(plan, start=1):
+                self._build_slot_row(inner, slot_no, color, match)
+
+            # Notes
+            notes = Frame(plan_area, bg=BG)
+            notes.pack(fill=X, side=BOTTOM)
+            if overflow:
+                Label(notes, text=f"⚠️  {len(overflow)} color(s) don't fit in "
+                                  f"{slots} slots. Reduce the color count, or print "
+                                  f"the extras with a manual swap.",
+                      bg=BG, fg="#e0a458", font=(FONT, 9), justify="left",
+                      wraplength=520).pack(anchor=W, pady=(8, 0))
+            if spec.get("shared"):
+                Label(notes, text="💧  Shared-nozzle system: every color change purges "
+                                  "filament into a waste/wipe tower. Fewer colors and "
+                                  "grouping similar shades reduces waste.",
+                      bg=BG, fg=FG_MUTED, font=(FONT, 9), justify="left",
+                      wraplength=520).pack(anchor=W, pady=(6, 0))
+            elif spec.get("manual"):
+                Label(notes, text="🔁  Manual swaps: pause the print and change filament "
+                                  "at the right layer. Almost no purge waste, but needs "
+                                  "you to be present for each change.",
+                      bg=BG, fg=FG_MUTED, font=(FONT, 9), justify="left",
+                      wraplength=520).pack(anchor=W, pady=(6, 0))
+            else:
+                Label(notes, text="✅  Independent-nozzle system: each head prints its own "
+                                  "color with little to no purge waste.",
+                      bg=BG, fg=FG_MUTED, font=(FONT, 9), justify="left",
+                      wraplength=520).pack(anchor=W, pady=(6, 0))
+
+        system_var.trace_add("write", _toggle_heads)
+        heads_var.trace_add("write", lambda *a: _render_plan())
+        _toggle_heads()
+
+    def _build_slot_plan(self, slots, manual):
+        """Return (plan, overflow) where plan is a list of (color, best_match)."""
+        plan = []
+        overflow = []
+        for i, (color, matches) in enumerate(self.results):
+            best = matches[0] if matches else None
+            if manual or i < slots:
+                plan.append((color, best))
+            else:
+                overflow.append((color, best))
+        return plan, overflow
+
+    def _build_slot_row(self, parent, slot_no, color, match):
+        row = Frame(parent, bg=BG_CARD)
+        row.pack(fill=X, pady=3, padx=2)
+
+        Label(row, text=f"Slot {slot_no}", bg=BG_CARD, fg=FG_MUTED,
+              font=(FONT, 9, "bold"), width=7, anchor=W).pack(side=LEFT, padx=(10, 4), pady=8)
+
+        # Target extracted color
+        Canvas(row, width=30, height=30, bg=color["hex"], highlightthickness=1,
+               highlightbackground="#11121a").pack(side=LEFT, pady=6)
+        Label(row, text="→", bg=BG_CARD, fg=FG_MUTED, font=(FONT, 11)).pack(side=LEFT, padx=6)
+
+        if match:
+            Canvas(row, width=30, height=30, bg=match["hex"], highlightthickness=1,
+                   highlightbackground="#11121a").pack(side=LEFT, pady=6)
+            info = Frame(row, bg=BG_CARD)
+            info.pack(side=LEFT, padx=10, fill=X, expand=True)
+            Label(info, text=f"{match['brand']} — {match['name']}", bg=BG_CARD, fg=FG,
+                  font=(FONT, 10, "bold"), anchor=W).pack(anchor=W)
+            Label(info, text=f"{match['material']}  •  {match['hex']}  •  "
+                             f"{color['percentage']}% of image  •  ΔE {match['distance']}",
+                  bg=BG_CARD, fg=FG_MUTED, font=(FONT, 8), anchor=W).pack(anchor=W)
+        else:
+            Label(row, text="(no filament match in current filter)", bg=BG_CARD,
+                  fg="#e0a458", font=(FONT, 9, "italic")).pack(side=LEFT, padx=10)
+
+    # ------------------------------------------------------------------ #
+    # Filament preview (posterized re-render)
+    # ------------------------------------------------------------------ #
+    def open_filament_preview(self):
+        """Re-render the loaded image using the best-match filament colors."""
+        if not self.image_path or not os.path.isfile(self.image_path):
+            messagebox.showinfo("No image", "Filament preview needs a loaded image.")
+            return
+        if not self.results:
+            return
+        try:
+            original, rendered = self._render_filament_image()
+        except Exception as exc:
+            messagebox.showerror("Preview failed", str(exc))
+            return
+
+        win = Toplevel(self.root)
+        win.title("Filament Preview")
+        win.configure(bg=BG)
+        win.transient(self.root)
+
+        Label(win, text="🖼️  What it looks like in filament colors", bg=BG, fg=FG,
+              font=(FONT, 13, "bold")).pack(anchor=W, padx=16, pady=(14, 2))
+        Label(win, text="Left: your image.   Right: re-rendered using the best-match "
+                        "filament color for each palette color.",
+              bg=BG, fg=FG_MUTED, font=(FONT, 9), justify="left",
+              wraplength=640).pack(anchor=W, padx=16, pady=(0, 8))
+
+        imgs = Frame(win, bg=BG)
+        imgs.pack(padx=16, pady=8)
+
+        self._orig_tk = ImageTk.PhotoImage(original)
+        self._rendered_tk = ImageTk.PhotoImage(rendered)
+        col1 = Frame(imgs, bg=BG)
+        col1.pack(side=LEFT, padx=8)
+        Label(col1, text="Original", bg=BG, fg=FG_MUTED, font=(FONT, 9)).pack()
+        Label(col1, image=self._orig_tk, bg=BG).pack()
+        col2 = Frame(imgs, bg=BG)
+        col2.pack(side=LEFT, padx=8)
+        Label(col2, text="Filament preview", bg=BG, fg=FG_MUTED, font=(FONT, 9)).pack()
+        Label(col2, image=self._rendered_tk, bg=BG).pack()
+
+        def _save():
+            path = filedialog.asksaveasfilename(
+                title="Save filament preview", defaultextension=".png",
+                filetypes=[("PNG image", "*.png"), ("JPEG image", "*.jpg")],
+                initialfile="filament_preview",
+            )
+            if path:
+                rendered.save(path)
+                messagebox.showinfo("Saved", f"Preview saved to:\n{path}", parent=win)
+
+        btns = Frame(win, bg=BG)
+        btns.pack(fill=X, padx=16, pady=12)
+        Button(btns, text="💾  Save preview image", command=_save, bg=ACCENT, fg="white",
+               activebackground=ACCENT_DARK, activeforeground="white", relief="flat",
+               font=(FONT, 10, "bold"), padx=14, pady=5, cursor="hand2", bd=0).pack(side=LEFT)
+        Button(btns, text="Close", command=win.destroy, bg=BG_CARD, fg=FG,
+               activebackground=BG_PANEL, activeforeground=FG, relief="flat",
+               font=(FONT, 10), padx=12, pady=5, cursor="hand2", bd=0).pack(side=RIGHT)
+
+    def _render_filament_image(self, max_dim=340):
+        """
+        Return (original_thumb, filament_thumb) PIL images.
+
+        Each pixel is snapped to the nearest extracted palette color (in CIE Lab)
+        and repainted with that color's best-match filament color, producing a
+        posterized 'what it would look like printed' preview.
+        """
+        img = Image.open(self.image_path)
+        if img.mode in ("RGBA", "LA", "P"):
+            img = img.convert("RGBA")
+            bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
+            img = Image.alpha_composite(bg, img).convert("RGB")
+        else:
+            img = img.convert("RGB")
+        img.thumbnail((max_dim, max_dim), Image.LANCZOS)
+        original = img.copy()
+
+        arr = np.asarray(img, dtype=np.float64).reshape(-1, 3)
+
+        palette_rgb = np.array([c["rgb"] for c, _ in self.results], dtype=np.float64)
+        # Best-match filament color per palette color (fall back to the color itself)
+        target_rgb = np.array([
+            (m[0]["rgb"] if m else c["rgb"])
+            for c, m in self.results
+        ], dtype=np.float64)
+
+        # Nearest palette color for each pixel, measured in Lab space.
+        px_lab = cu.rgb_to_lab(arr)
+        pal_lab = cu.rgb_to_lab(palette_rgb)
+        # Euclidean distance in Lab (fast, ample for a visual preview)
+        diff = px_lab[:, None, :] - pal_lab[None, :, :]
+        d2 = np.einsum("ijk,ijk->ij", diff, diff)
+        nearest = np.argmin(d2, axis=1)
+
+        out = target_rgb[nearest].reshape(*np.asarray(img).shape)
+        rendered = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
+        return original, rendered
 
     # ------------------------------------------------------------------ #
     # Export

@@ -5,7 +5,7 @@ Provides:
     * Dominant color extraction from an image using k-means clustering
       (implemented with NumPy so no scikit-learn dependency is required).
     * Color space conversions (sRGB -> CIE L*a*b*).
-    * Perceptual color distance (CIE76 Delta E) for filament matching.
+    * Perceptual color distance (CIEDE2000 Delta E) for filament matching.
     * A helper to find the closest filaments for a given color.
 """
 
@@ -22,6 +22,25 @@ def rgb_to_hex(rgb: Tuple[int, int, int]) -> str:
     """Convert an ``(r, g, b)`` tuple to a ``#RRGGBB`` string."""
     r, g, b = (int(max(0, min(255, round(c)))) for c in rgb)
     return f"#{r:02X}{g:02X}{b:02X}"
+
+
+def hex_to_rgb(hex_str: str) -> Tuple[int, int, int]:
+    """
+    Parse a hex color string into an ``(r, g, b)`` int tuple.
+
+    Accepts values with or without a leading ``#`` and supports both the
+    3-digit shorthand (``#abc``) and the full 6-digit form (``#aabbcc``).
+    Raises ``ValueError`` if the string is not a valid hex color.
+    """
+    s = hex_str.strip().lstrip("#")
+    if len(s) == 3:
+        s = "".join(ch * 2 for ch in s)
+    if len(s) != 6:
+        raise ValueError(f"'{hex_str}' is not a valid hex color")
+    try:
+        return tuple(int(s[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        raise ValueError(f"'{hex_str}' is not a valid hex color")
 
 
 def _srgb_to_linear(channel: np.ndarray) -> np.ndarray:
@@ -63,9 +82,95 @@ def rgb_to_lab(rgb: np.ndarray) -> np.ndarray:
     return np.stack([L, a, b], axis=-1)
 
 
-def delta_e(lab1: np.ndarray, lab2: np.ndarray) -> np.ndarray:
-    """CIE76 Delta E (Euclidean distance in Lab space)."""
+def delta_e76(lab1: np.ndarray, lab2: np.ndarray) -> np.ndarray:
+    """CIE76 Delta E (plain Euclidean distance in Lab space)."""
     return np.sqrt(np.sum((lab1 - lab2) ** 2, axis=-1))
+
+
+def delta_e2000(lab1: np.ndarray, lab2: np.ndarray) -> np.ndarray:
+    """
+    CIEDE2000 color difference (the modern perceptual standard).
+
+    This corrects CIE76's well-known weaknesses in the blue and neutral
+    regions and is noticeably better at ranking "which filament looks closest"
+    the way a human would judge it.
+
+    Both inputs are arrays whose last axis is (L, a, b). They are broadcast
+    against each other, so you can pass one (N, 3) array and one (3,) array.
+    Returns an array of the broadcast shape (minus the last axis).
+    """
+    lab1 = np.asarray(lab1, dtype=np.float64)
+    lab2 = np.asarray(lab2, dtype=np.float64)
+
+    L1, a1, b1 = lab1[..., 0], lab1[..., 1], lab1[..., 2]
+    L2, a2, b2 = lab2[..., 0], lab2[..., 1], lab2[..., 2]
+
+    # Weighting factors (unity for the reference conditions).
+    kL = kC = kH = 1.0
+
+    C1 = np.sqrt(a1 ** 2 + b1 ** 2)
+    C2 = np.sqrt(a2 ** 2 + b2 ** 2)
+    C_bar = (C1 + C2) / 2.0
+
+    C_bar7 = C_bar ** 7
+    G = 0.5 * (1 - np.sqrt(C_bar7 / (C_bar7 + 25.0 ** 7)))
+
+    a1p = (1 + G) * a1
+    a2p = (1 + G) * a2
+
+    C1p = np.sqrt(a1p ** 2 + b1 ** 2)
+    C2p = np.sqrt(a2p ** 2 + b2 ** 2)
+
+    h1p = np.degrees(np.arctan2(b1, a1p)) % 360.0
+    h2p = np.degrees(np.arctan2(b2, a2p)) % 360.0
+
+    dLp = L2 - L1
+    dCp = C2p - C1p
+
+    dhp = h2p - h1p
+    dhp = np.where(dhp > 180, dhp - 360, dhp)
+    dhp = np.where(dhp < -180, dhp + 360, dhp)
+    # When either chroma is zero, hue difference is undefined -> 0.
+    dhp = np.where((C1p * C2p) == 0, 0.0, dhp)
+    dHp = 2 * np.sqrt(C1p * C2p) * np.sin(np.radians(dhp) / 2.0)
+
+    Lp_bar = (L1 + L2) / 2.0
+    Cp_bar = (C1p + C2p) / 2.0
+
+    hsum = h1p + h2p
+    habs = np.abs(h1p - h2p)
+    hp_bar = np.where(
+        (C1p * C2p) == 0, hsum,
+        np.where(habs <= 180, hsum / 2.0,
+                 np.where(hsum < 360, (hsum + 360) / 2.0, (hsum - 360) / 2.0)),
+    )
+
+    T = (1
+         - 0.17 * np.cos(np.radians(hp_bar - 30))
+         + 0.24 * np.cos(np.radians(2 * hp_bar))
+         + 0.32 * np.cos(np.radians(3 * hp_bar + 6))
+         - 0.20 * np.cos(np.radians(4 * hp_bar - 63)))
+
+    d_theta = 30 * np.exp(-(((hp_bar - 275) / 25.0) ** 2))
+    Cp_bar7 = Cp_bar ** 7
+    Rc = 2 * np.sqrt(Cp_bar7 / (Cp_bar7 + 25.0 ** 7))
+    Sl = 1 + (0.015 * (Lp_bar - 50) ** 2) / np.sqrt(20 + (Lp_bar - 50) ** 2)
+    Sc = 1 + 0.045 * Cp_bar
+    Sh = 1 + 0.015 * Cp_bar * T
+    Rt = -np.sin(np.radians(2 * d_theta)) * Rc
+
+    dE = np.sqrt(
+        (dLp / (kL * Sl)) ** 2
+        + (dCp / (kC * Sc)) ** 2
+        + (dHp / (kH * Sh)) ** 2
+        + Rt * (dCp / (kC * Sc)) * (dHp / (kH * Sh))
+    )
+    return dE
+
+
+def delta_e(lab1: np.ndarray, lab2: np.ndarray) -> np.ndarray:
+    """Default Delta E used across the app: CIEDE2000."""
+    return delta_e2000(lab1, lab2)
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +311,7 @@ def match_filaments(
     material_filter: str = None,
 ) -> List[Dict]:
     """
-    Find the closest filament colors to ``target_rgb`` using Delta E (CIE76).
+    Find the closest filament colors to ``target_rgb`` using Delta E (CIEDE2000).
 
     Args:
         target_rgb: The color to match, as an (r, g, b) tuple.

@@ -3,7 +3,8 @@ Filament color database for the 3D Print Color Palette Matcher.
 
 Each filament entry is a dict with the following keys:
     brand    : Manufacturer name (e.g. "Bambu Lab")
-    material : Material type ("PLA", "ABS" or "PETG")
+    material : Material / finish type ("PLA", "PETG", "ABS", "TPU",
+               "Silk", "Matte" or "Wood")
     name     : Marketing color name (e.g. "Bambu Green")
     hex      : HEX color string, e.g. "#00AE42"
     url      : Purchase / product URL
@@ -234,6 +235,115 @@ _FILAMENTS: List[Dict[str, str]] = [
     {"brand": "3D Solutech", "material": "PLA", "name": "Natural Clear", "hex": "#EDEDE4", "url": "https://www.amazon.com/s?k=3d+solutech+pla+filament"},
     {"brand": "3D Solutech", "material": "PLA", "name": "Real Black", "hex": "#131313", "url": "https://www.amazon.com/s?k=3d+solutech+pla+filament"},
     {"brand": "3D Solutech", "material": "PLA", "name": "Apple Green", "hex": "#4FA83D", "url": "https://www.amazon.com/s?k=3d+solutech+pla+filament"},
+
+    # ================================================================== #
+    # MATTE PLA — flat, non-reflective finish (great for models/figures) #
+    # ================================================================== #
+    # ---- Bambu Lab PLA Matte ---- #
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Ivory White", "hex": "#EDE9DE", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Bone White", "hex": "#E4DCC8", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Charcoal", "hex": "#26282B", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Ash Grey", "hex": "#9B9EA0", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Nardo Grey", "hex": "#6C6E6C", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Scarlet Red", "hex": "#C3272B", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Dark Red", "hex": "#88191B", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Mandarin Orange", "hex": "#E8631A", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Lemon Yellow", "hex": "#F5C518", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Grass Green", "hex": "#5E9A3E", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Dark Green", "hex": "#2C5A3A", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Ice Blue", "hex": "#A7C7DA", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Marine Blue", "hex": "#1F5C8B", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Sakura Pink", "hex": "#F3B9C4", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Lilac Purple", "hex": "#8A7CB6", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Latte Brown", "hex": "#9A6B45", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Desert Tan", "hex": "#C7A97B", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Terracotta", "hex": "#B4553A", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    # ---- Polymaker PolyTerra Matte PLA ---- #
+    {"brand": "Polymaker", "material": "Matte", "name": "PolyTerra Cotton White", "hex": "#ECE9E1", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "Matte", "name": "PolyTerra Charcoal Black", "hex": "#292A2D", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "Matte", "name": "PolyTerra Lava Red", "hex": "#B32C2C", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "Matte", "name": "PolyTerra Sunrise Orange", "hex": "#E96B26", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "Matte", "name": "PolyTerra Sapphire Blue", "hex": "#20509A", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "Matte", "name": "PolyTerra Forest Green", "hex": "#2F6B49", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "Matte", "name": "PolyTerra Muted Yellow", "hex": "#E6C23A", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "Matte", "name": "PolyTerra Fossil Grey", "hex": "#8C8D88", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    # ---- Overture Matte PLA ---- #
+    {"brand": "Overture", "material": "Matte", "name": "Matte White", "hex": "#EEEBE3", "url": "https://overture3d.com/collections/matte-pla"},
+    {"brand": "Overture", "material": "Matte", "name": "Matte Black", "hex": "#242424", "url": "https://overture3d.com/collections/matte-pla"},
+    {"brand": "Overture", "material": "Matte", "name": "Matte Red", "hex": "#BE2F2F", "url": "https://overture3d.com/collections/matte-pla"},
+    {"brand": "Overture", "material": "Matte", "name": "Matte Blue", "hex": "#28598F", "url": "https://overture3d.com/collections/matte-pla"},
+    {"brand": "Overture", "material": "Matte", "name": "Matte Green", "hex": "#3B7A4A", "url": "https://overture3d.com/collections/matte-pla"},
+
+    # ================================================================== #
+    # SILK PLA — glossy, metallic sheen                                  #
+    # ================================================================== #
+    # ---- Bambu Lab PLA Silk / Silk+ ---- #
+    {"brand": "Bambu Lab", "material": "Silk", "name": "Silk Gold", "hex": "#D4A73B", "url": "https://us.store.bambulab.com/products/pla-silk"},
+    {"brand": "Bambu Lab", "material": "Silk", "name": "Silk Silver", "hex": "#B9BCBE", "url": "https://us.store.bambulab.com/products/pla-silk"},
+    {"brand": "Bambu Lab", "material": "Silk", "name": "Silk Champagne", "hex": "#C9B98E", "url": "https://us.store.bambulab.com/products/pla-silk"},
+    {"brand": "Bambu Lab", "material": "Silk", "name": "Silk Blue", "hex": "#2E6FC4", "url": "https://us.store.bambulab.com/products/pla-silk"},
+    {"brand": "Bambu Lab", "material": "Silk", "name": "Silk Purple", "hex": "#7A4FC0", "url": "https://us.store.bambulab.com/products/pla-silk"},
+    {"brand": "Bambu Lab", "material": "Silk", "name": "Silk Pink", "hex": "#EC7CA8", "url": "https://us.store.bambulab.com/products/pla-silk"},
+    {"brand": "Bambu Lab", "material": "Silk", "name": "Silk Candy Green", "hex": "#2FA86A", "url": "https://us.store.bambulab.com/products/pla-silk"},
+    {"brand": "Bambu Lab", "material": "Silk", "name": "Silk Candy Red", "hex": "#CE2C43", "url": "https://us.store.bambulab.com/products/pla-silk"},
+    # ---- SUNLU Silk PLA ---- #
+    {"brand": "SUNLU", "material": "Silk", "name": "Silk Gold", "hex": "#CBA135", "url": "https://www.sunlu.com/collections/silk-pla-filament"},
+    {"brand": "SUNLU", "material": "Silk", "name": "Silk Silver", "hex": "#BEC1C3", "url": "https://www.sunlu.com/collections/silk-pla-filament"},
+    {"brand": "SUNLU", "material": "Silk", "name": "Silk Copper", "hex": "#B4633A", "url": "https://www.sunlu.com/collections/silk-pla-filament"},
+    {"brand": "SUNLU", "material": "Silk", "name": "Silk Red", "hex": "#CC2733", "url": "https://www.sunlu.com/collections/silk-pla-filament"},
+    {"brand": "SUNLU", "material": "Silk", "name": "Silk Blue", "hex": "#2C74C0", "url": "https://www.sunlu.com/collections/silk-pla-filament"},
+    {"brand": "SUNLU", "material": "Silk", "name": "Silk Rainbow", "hex": "#9B6FB0", "url": "https://www.sunlu.com/collections/silk-pla-filament"},
+    # ---- eSun eSilk PLA ---- #
+    {"brand": "eSun", "material": "Silk", "name": "eSilk Gold", "hex": "#CFA53C", "url": "https://www.esun3d.com/esilk-pla-product/"},
+    {"brand": "eSun", "material": "Silk", "name": "eSilk Silver", "hex": "#BCC0C2", "url": "https://www.esun3d.com/esilk-pla-product/"},
+    {"brand": "eSun", "material": "Silk", "name": "eSilk Bronze", "hex": "#A9793F", "url": "https://www.esun3d.com/esilk-pla-product/"},
+    {"brand": "eSun", "material": "Silk", "name": "eSilk Pink", "hex": "#E884A6", "url": "https://www.esun3d.com/esilk-pla-product/"},
+
+    # ================================================================== #
+    # TPU — flexible filament                                            #
+    # ================================================================== #
+    # ---- Bambu Lab TPU for AMS (95A) ---- #
+    {"brand": "Bambu Lab", "material": "TPU", "name": "TPU Black", "hex": "#1B1B1B", "url": "https://us.store.bambulab.com/products/tpu-for-ams"},
+    {"brand": "Bambu Lab", "material": "TPU", "name": "TPU White", "hex": "#F1F1EC", "url": "https://us.store.bambulab.com/products/tpu-for-ams"},
+    {"brand": "Bambu Lab", "material": "TPU", "name": "TPU Red", "hex": "#C1272D", "url": "https://us.store.bambulab.com/products/tpu-for-ams"},
+    {"brand": "Bambu Lab", "material": "TPU", "name": "TPU Blue", "hex": "#1F5FA8", "url": "https://us.store.bambulab.com/products/tpu-for-ams"},
+    {"brand": "Bambu Lab", "material": "TPU", "name": "TPU Neon Green", "hex": "#7ED957", "url": "https://us.store.bambulab.com/products/tpu-for-ams"},
+    {"brand": "Bambu Lab", "material": "TPU", "name": "TPU Yellow", "hex": "#F4C022", "url": "https://us.store.bambulab.com/products/tpu-for-ams"},
+    # ---- eSun eTPU-95A ---- #
+    {"brand": "eSun", "material": "TPU", "name": "eTPU Black", "hex": "#161616", "url": "https://www.esun3d.com/etpu-95a-product/"},
+    {"brand": "eSun", "material": "TPU", "name": "eTPU White", "hex": "#F5F5F0", "url": "https://www.esun3d.com/etpu-95a-product/"},
+    {"brand": "eSun", "material": "TPU", "name": "eTPU Red", "hex": "#C0202B", "url": "https://www.esun3d.com/etpu-95a-product/"},
+    {"brand": "eSun", "material": "TPU", "name": "eTPU Blue", "hex": "#1E5DA8", "url": "https://www.esun3d.com/etpu-95a-product/"},
+    {"brand": "eSun", "material": "TPU", "name": "eTPU Orange", "hex": "#EE6A1D", "url": "https://www.esun3d.com/etpu-95a-product/"},
+    {"brand": "eSun", "material": "TPU", "name": "eTPU Grey", "hex": "#808285", "url": "https://www.esun3d.com/etpu-95a-product/"},
+    # ---- Polymaker PolyFlex TPU95 ---- #
+    {"brand": "Polymaker", "material": "TPU", "name": "PolyFlex Black", "hex": "#141414", "url": "https://shop.polymaker.com/products/polyflex-tpu95"},
+    {"brand": "Polymaker", "material": "TPU", "name": "PolyFlex White", "hex": "#F4F4EF", "url": "https://shop.polymaker.com/products/polyflex-tpu95"},
+    {"brand": "Polymaker", "material": "TPU", "name": "PolyFlex Red", "hex": "#BE222E", "url": "https://shop.polymaker.com/products/polyflex-tpu95"},
+    {"brand": "Polymaker", "material": "TPU", "name": "PolyFlex Blue", "hex": "#215BA0", "url": "https://shop.polymaker.com/products/polyflex-tpu95"},
+    # ---- SainSmart / SUNLU flexible ---- #
+    {"brand": "SUNLU", "material": "TPU", "name": "TPU Black", "hex": "#151515", "url": "https://www.sunlu.com/collections/tpu-filament"},
+    {"brand": "SUNLU", "material": "TPU", "name": "TPU Transparent", "hex": "#E9E9E2", "url": "https://www.sunlu.com/collections/tpu-filament"},
+    {"brand": "SUNLU", "material": "TPU", "name": "TPU Red", "hex": "#C31C28", "url": "https://www.sunlu.com/collections/tpu-filament"},
+
+    # ================================================================== #
+    # WOOD-FILLED PLA — matte, wood-tone finish                          #
+    # ================================================================== #
+    # ---- Bambu Lab PLA Wood ---- #
+    {"brand": "Bambu Lab", "material": "Wood", "name": "Wood Clay Brown", "hex": "#8B5A2B", "url": "https://us.store.bambulab.com/products/pla-wood"},
+    {"brand": "Bambu Lab", "material": "Wood", "name": "Wood Rosewood", "hex": "#6E3B2E", "url": "https://us.store.bambulab.com/products/pla-wood"},
+    {"brand": "Bambu Lab", "material": "Wood", "name": "Wood Classic Birch", "hex": "#C7A876", "url": "https://us.store.bambulab.com/products/pla-wood"},
+    {"brand": "Bambu Lab", "material": "Wood", "name": "Wood Black Walnut", "hex": "#4A342A", "url": "https://us.store.bambulab.com/products/pla-wood"},
+    {"brand": "Bambu Lab", "material": "Wood", "name": "Wood White Oak", "hex": "#B99C74", "url": "https://us.store.bambulab.com/products/pla-wood"},
+    {"brand": "Bambu Lab", "material": "Wood", "name": "Wood Ochre Yellow", "hex": "#B98A34", "url": "https://us.store.bambulab.com/products/pla-wood"},
+    # ---- ColorFabb woodFill ---- #
+    {"brand": "ColorFabb", "material": "Wood", "name": "woodFill", "hex": "#9C6B3F", "url": "https://colorfabb.com/woodfill"},
+    {"brand": "ColorFabb", "material": "Wood", "name": "bambooFill", "hex": "#C0A067", "url": "https://colorfabb.com/bamboofill"},
+    {"brand": "ColorFabb", "material": "Wood", "name": "corkFill", "hex": "#A9805A", "url": "https://colorfabb.com/corkfill"},
+    # ---- Polymaker PolyWood / SUNLU Wood ---- #
+    {"brand": "Polymaker", "material": "Wood", "name": "PolyWood Natural", "hex": "#B58A55", "url": "https://shop.polymaker.com/products/polywood"},
+    {"brand": "SUNLU", "material": "Wood", "name": "Wood Natural", "hex": "#A9773F", "url": "https://www.sunlu.com/collections/wood-pla-filament"},
+    {"brand": "SUNLU", "material": "Wood", "name": "Wood Dark", "hex": "#5E4126", "url": "https://www.sunlu.com/collections/wood-pla-filament"},
 ]
 
 
@@ -259,10 +369,22 @@ _PRICE_PER_KG: Dict[str, float] = {
     "Elegoo|PLA": 13.99,
     "Creality|PLA": 17.99,
     "3D Solutech|PLA": 19.99,
+
+    # Matte PLA
+    "Bambu Lab|Matte": 19.99, "Polymaker|Matte": 21.99, "Overture|Matte": 19.99,
+    # Silk PLA
+    "Bambu Lab|Silk": 24.99, "SUNLU|Silk": 18.99, "eSun|Silk": 21.99,
+    # TPU (flexible)
+    "Bambu Lab|TPU": 34.99, "eSun|TPU": 27.99, "Polymaker|TPU": 32.99, "SUNLU|TPU": 22.99,
+    # Wood-filled PLA
+    "Bambu Lab|Wood": 24.99, "ColorFabb|Wood": 44.99, "Polymaker|Wood": 29.99, "SUNLU|Wood": 21.99,
 }
 
 # Material-level fallback prices (USD/kg) when a specific brand isn't listed.
-_MATERIAL_FALLBACK_PRICE: Dict[str, float] = {"PLA": 20.0, "PETG": 23.0, "ABS": 23.0}
+_MATERIAL_FALLBACK_PRICE: Dict[str, float] = {
+    "PLA": 20.0, "PETG": 23.0, "ABS": 23.0,
+    "Matte": 21.0, "Silk": 22.0, "TPU": 30.0, "Wood": 28.0,
+}
 
 
 def _hex_to_rgb(hex_str: str) -> Tuple[int, int, int]:
