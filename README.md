@@ -6,12 +6,15 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#-download)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-A cross-platform desktop app that extracts the dominant colors from any image and
-matches them to **real-world 3D printing filament colors** from popular brands —
-then tells you **where to buy them** and **how much the print will cost**.
+A cross-platform desktop app that extracts the dominant colors from any image
+(or takes colors you type in directly) and matches them to **real-world 3D
+printing filament colors** from popular brands — then tells you **where to buy
+them** and **how much the print will cost**, plans your **filament slots**, and
+even shows a **preview of your image in the matched filament colors**.
 
 Perfect for planning multi-color prints on **Bambu Lab AMS (4 / 8 / 16 color),
-Snapmaker**, and other multi-material systems.
+Prusa MMU3, tool changers / multi-head, IDEX / dual extruder**, and other
+multi-material systems (or plain manual filament swaps).
 
 ![demo](docs/demo.gif)
 
@@ -45,16 +48,23 @@ Double-click to run. No install needed! 🎉
 ## ✨ Features
 
 - 🖼️ **Load images** via **Browse** or **drag-and-drop** (JPG, PNG, BMP, GIF, TIFF, WEBP).
+- 🎨 **Enter colors directly** — paste/type hex codes or use a color picker, no image needed.
 - 🎯 **Dominant color extraction** using **k-means clustering** (NumPy — no heavy ML deps).
 - 🎚️ **Configurable palette size** — extract **1 to 16 colors** (great for 8/16-slot AMS).
 - 🌈 **Brightness & saturation sliders** to fine-tune extracted colors before matching.
-- 🧵 **Big filament database** — **145+ filaments across 16 brands**
+- 🧵 **Big filament database** — **225+ filaments across 16 brands**
   (Bambu Lab, Hatchbox, Prusament, eSun, Polymaker, Overture, SUNLU, ColorFabb,
   MatterHackers, Atomic Filament, IC3D, Amazon Basics, Inland, Elegoo, Creality,
-  3D Solutech) covering **PLA, ABS and PETG**.
-- 👁️ **Perceptual color matching** with **CIE76 Delta E** (matched in Lab space, not raw RGB).
-- 🥇 **Top-3 match suggestions** per color with a quality rating (excellent → approximate).
+  3D Solutech) covering **PLA, PETG, ABS, TPU, Silk, Matte and Wood**.
+- 👁️ **Perceptual color matching** with **CIEDE2000 Delta E** — the industry-standard
+  color-difference formula (much closer to how the human eye sees color than CIE76).
+- 🥇 **Top-3 match suggestions** per color with a quality rating (perfect → approximate).
 - 🔎 **Filter by brand and/or material** to match only filaments you can actually buy.
+- 🖨️ **Print System Planner** — assigns your colors to filament slots for
+  **Bambu AMS (4/8/16), Prusa MMU3 (5), tool changers / multi-head (up to 8),
+  IDEX / dual (2), or manual swaps**, with purge-waste guidance per system.
+- 🖼️ **Filament preview** — re-renders your image using the matched filament colors
+  so you can see roughly how the print will look (and save the preview as an image).
 - 💰 **Filament cost calculator** — estimates grams and cost per color for your print weight.
 - ⭐ **Save & reload favorite palettes** between sessions.
 - 🛒 **Clickable purchase links** — jump straight to each filament's product page.
@@ -120,14 +130,15 @@ python examples/make_examples.py
 | Color extraction | K-means clustering (k-means++ init) on downscaled image pixels |
 | Adjustment | Optional brightness/saturation tweak in HSV space |
 | Color space | sRGB → linear RGB → CIE XYZ (D65) → CIE L\*a\*b\* |
-| Color matching | CIE76 Delta E (Euclidean distance in Lab space) |
+| Color matching | **CIEDE2000 Delta E** (the current CIE standard color-difference metric) |
 | Cost | `grams = weight × color%`, `cost = grams/1000 × price_per_kg` |
 
-Matching in **Lab space** is far more perceptually accurate than comparing raw
-RGB values, so the suggested filaments look correct to the human eye.
+Matching in **Lab space** with **CIEDE2000** is far more perceptually accurate
+than comparing raw RGB values (or even the older CIE76 formula), so the
+suggested filaments look correct to the human eye.
 
-**Match quality scale (Delta E):**
-`≤2 excellent · ≤5 great · ≤10 good · ≤20 fair · >20 approximate`
+**Match quality scale (ΔE2000):**
+`≤1 perfect · ≤2 excellent · ≤3.5 great · ≤6 good · ≤10 fair · >10 approximate`
 
 ---
 

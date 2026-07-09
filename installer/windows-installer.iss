@@ -15,7 +15,7 @@
 ; =====================================================================
 
 #define MyAppName "3D Color Palette Matcher"
-#define MyAppVersion "1.0"
+#define MyAppVersion "2.0"
 #define MyAppPublisher "Netspecs"
 #define MyAppURL "https://github.com/Netspecs/3d-color-palette-matcher"
 #define MyAppExeName "3DColorPaletteMatcher.exe"

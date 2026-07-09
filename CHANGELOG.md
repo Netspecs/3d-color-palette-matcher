@@ -2,6 +2,42 @@
 
 All notable changes to the 3D Print Color Palette Matcher project.
 
+## [v2.0] - 2026-07-09
+
+### 🎯 More accurate color matching
+- Switched filament matching from **CIE76** to **CIEDE2000 (ΔE2000)** — the
+  current CIE-standard perceptual color-difference formula. Matches now line up
+  much better with how the human eye actually sees color.
+- Recalibrated the match-quality scale for ΔE2000:
+  `≤1 perfect · ≤2 excellent · ≤3.5 great · ≤6 good · ≤10 fair · >10 approximate`.
+
+### 🧵 Bigger, honest filament database
+- Grew the database from **145 → 225 filaments** and added the material lines the
+  marketing always claimed: **TPU, Silk, Matte and Wood** (alongside PLA/PETG/ABS)
+  from Bambu Lab, Polymaker, eSun, SUNLU, Overture and ColorFabb.
+- Added retail price data (and material-level fallbacks) for all new materials.
+
+### 🎨 Enter colors directly (no image needed)
+- New **"Enter Colors"** dialog: paste/type hex codes or use a color picker and
+  match straight to filaments — great when you already have brand colors or a
+  palette in mind.
+
+### 🖨️ Print System Planner
+- New planner assigns your matched colors to filament **slots** for:
+  **Bambu AMS (4 / 8 / 16), Prusa MMU3 (5), tool changers / multi-head (custom,
+  up to 8), IDEX / dual (2), and manual filament swaps**.
+- Flags colors that don't fit the available slots and shows **purge/waste
+  guidance** only for shared-nozzle systems (AMS, MMU3).
+
+### 🖼️ Filament preview
+- New **Filament Preview** re-renders your image using the best-match filament
+  color for each palette color (posterized), so you can see roughly how the print
+  will look — and save the preview as a PNG/JPG.
+
+### 🏷️ Misc
+- Version bumped to **2.0** (app + Windows installer).
+- Updated README / docs to match the real feature set and database.
+
 ## [v1.0] - 2026-07-05
 
 ### 🔧 Windows Installer (PR #4)
