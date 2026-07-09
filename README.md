@@ -18,6 +18,16 @@ multi-material systems (or plain manual filament swaps).
 
 ![demo](docs/demo.gif)
 
+### ✨ New in v2.0
+
+![v2.0 showcase](docs/v2_showcase.png)
+
+- **CIEDE2000** perceptual color matching (a big accuracy jump over CIE76)
+- **Print System Planner** — assign colors to slots for Bambu AMS (4/8/16), Prusa MMU3, tool changers, IDEX, or manual swaps
+- **Filament Preview** — see your image re-rendered in the matched filament colors
+- **225 filaments across 7 materials** — added TPU, Silk, Matte & Wood lines
+- **Direct color input** — match hex codes with no image needed
+
 ---
 
 ## 📥 Download
