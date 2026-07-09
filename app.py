@@ -87,8 +87,8 @@ class ColorMatcherApp:
     def __init__(self, root):
         self.root = root
         self.root.title(f"3D Print Color Palette Matcher v{APP_VERSION}")
-        self.root.geometry("1080x760")
-        self.root.minsize(940, 640)
+        self.root.geometry("1000x720")
+        self.root.minsize(900, 620)
         self.root.configure(bg=BG)
         self._set_window_icon()
 
@@ -140,6 +140,7 @@ class ColorMatcherApp:
         self._build_header()
         self._build_controls()
         self._build_controls_row2()
+        self._build_controls_row3()
         self._build_body()
         self._build_statusbar()
 
@@ -183,25 +184,8 @@ class ColorMatcherApp:
         )
         self.color_scale.pack(side=LEFT)
 
-        # Brand filter
-        Label(bar, text="Brand:", bg=BG, fg=FG, font=(FONT, 10)).pack(side=LEFT, padx=(18, 4))
-        brands = ["All"] + fdb.get_brands()
-        self._make_option(bar, self.brand_var, brands).pack(side=LEFT)
-
-        # Material filter
-        Label(bar, text="Material:", bg=BG, fg=FG, font=(FONT, 10)).pack(side=LEFT, padx=(12, 4))
-        materials = ["All"] + fdb.get_materials()
-        self._make_option(bar, self.material_var, materials).pack(side=LEFT)
-
-        # Action buttons on the right
-        self.export_btn = Button(
-            bar, text="💾  Export", command=self.export_palette,
-            bg=BG_CARD, fg=FG, activebackground=BG_PANEL, activeforeground=FG,
-            relief="flat", font=(FONT, 10), padx=12, pady=6, cursor="hand2", bd=0,
-            state="disabled",
-        )
-        self.export_btn.pack(side=RIGHT)
-
+        # Primary action on the right — kept alone so it never collides with
+        # the filters on narrower windows. Export/other actions live on row 3.
         self.match_btn = Button(
             bar, text="🔍  Match Colors", command=self.run_matching,
             bg=ACCENT, fg="white", activebackground=ACCENT_DARK,
@@ -214,8 +198,18 @@ class ColorMatcherApp:
         bar = Frame(self.root, bg=BG)
         bar.pack(side=TOP, fill=X, padx=12, pady=(0, 4))
 
+        # Brand filter
+        Label(bar, text="Brand:", bg=BG, fg=FG, font=(FONT, 9)).pack(side=LEFT, padx=(0, 4))
+        brands = ["All"] + fdb.get_brands()
+        self._make_option(bar, self.brand_var, brands).pack(side=LEFT)
+
+        # Material filter
+        Label(bar, text="Material:", bg=BG, fg=FG, font=(FONT, 9)).pack(side=LEFT, padx=(12, 4))
+        materials = ["All"] + fdb.get_materials()
+        self._make_option(bar, self.material_var, materials).pack(side=LEFT)
+
         # Brightness / saturation adjustment (applied to extracted colors)
-        Label(bar, text="Brightness:", bg=BG, fg=FG, font=(FONT, 9)).pack(side=LEFT, padx=(0, 2))
+        Label(bar, text="Brightness:", bg=BG, fg=FG, font=(FONT, 9)).pack(side=LEFT, padx=(18, 2))
         Scale(bar, from_=0.5, to=1.5, resolution=0.05, orient=HORIZONTAL,
               variable=self.brightness, bg=BG, fg=FG, highlightthickness=0,
               troughcolor=BG_CARD, activebackground=ACCENT, length=110,
@@ -236,6 +230,32 @@ class ColorMatcherApp:
         grams_entry.pack(side=LEFT)
         grams_entry.bind("<Return>", lambda e: self._refresh_cost())
 
+    def _build_controls_row3(self):
+        """Result/action buttons — kept on their own row so nothing collides
+        with the tuning controls on narrower windows."""
+        bar = Frame(self.root, bg=BG)
+        bar.pack(side=TOP, fill=X, padx=12, pady=(0, 6))
+
+        Label(bar, text="Results:", bg=BG, fg=FG_MUTED,
+              font=(FONT, 9)).pack(side=LEFT, padx=(0, 4))
+
+        # Print planner + filament preview (enabled once colors are matched)
+        self.preview_btn = Button(
+            bar, text="🖼️  Filament Preview", command=self.open_filament_preview,
+            bg=BG_CARD, fg=FG, activebackground=BG_PANEL, activeforeground=FG,
+            relief="flat", font=(FONT, 9), padx=10, pady=4, cursor="hand2", bd=0,
+            state="disabled",
+        )
+        self.preview_btn.pack(side=LEFT, padx=(0, 8))
+
+        self.plan_btn = Button(
+            bar, text="🖨️  Plan Print", command=self.open_planner,
+            bg=BG_CARD, fg=FG, activebackground=BG_PANEL, activeforeground=FG,
+            relief="flat", font=(FONT, 9), padx=10, pady=4, cursor="hand2", bd=0,
+            state="disabled",
+        )
+        self.plan_btn.pack(side=LEFT, padx=(0, 8))
+
         # Saved palettes
         self.save_btn = Button(
             bar, text="⭐  Save Palette", command=self.save_current_palette,
@@ -252,22 +272,13 @@ class ColorMatcherApp:
         )
         self.load_pal_btn.pack(side=RIGHT, padx=(0, 8))
 
-        # Print planner + filament preview (enabled once colors are matched)
-        self.plan_btn = Button(
-            bar, text="🖨️  Plan Print", command=self.open_planner,
+        self.export_btn = Button(
+            bar, text="💾  Export", command=self.export_palette,
             bg=BG_CARD, fg=FG, activebackground=BG_PANEL, activeforeground=FG,
             relief="flat", font=(FONT, 9), padx=10, pady=4, cursor="hand2", bd=0,
             state="disabled",
         )
-        self.plan_btn.pack(side=RIGHT, padx=(0, 8))
-
-        self.preview_btn = Button(
-            bar, text="🖼️  Filament Preview", command=self.open_filament_preview,
-            bg=BG_CARD, fg=FG, activebackground=BG_PANEL, activeforeground=FG,
-            relief="flat", font=(FONT, 9), padx=10, pady=4, cursor="hand2", bd=0,
-            state="disabled",
-        )
-        self.preview_btn.pack(side=RIGHT, padx=(0, 8))
+        self.export_btn.pack(side=RIGHT, padx=(0, 8))
 
     def _make_option(self, parent, var, values):
         menu = OptionMenu(parent, var, *values)
@@ -719,7 +730,7 @@ class ColorMatcherApp:
         win = Toplevel(self.root)
         win.title("Print System Planner")
         win.configure(bg=BG)
-        win.geometry("560x640")
+        win.geometry("660x640")
         win.transient(self.root)
 
         Label(win, text="🖨️  Print System Planner", bg=BG, fg=FG,
@@ -727,7 +738,7 @@ class ColorMatcherApp:
         Label(win, text="Assign your matched colors to filament slots. Colors are "
                         "ordered by how much of the image they cover.",
               bg=BG, fg=FG_MUTED, font=(FONT, 9), justify="left",
-              wraplength=520).pack(anchor=W, padx=16)
+              wraplength=610).pack(anchor=W, padx=16)
 
         ctrl = Frame(win, bg=BG)
         ctrl.pack(fill=X, padx=16, pady=10)
@@ -775,52 +786,70 @@ class ColorMatcherApp:
 
             plan, overflow = self._build_slot_plan(slots, spec.get("manual", False))
 
-            # Summary line
+            # Summary line (fixed height, top)
             summary = (f"{n_colors} color(s) → {len(plan)} slot(s) used"
                        + (f", {slots} available" if not spec.get("manual") else ""))
             Label(plan_area, text=summary, bg=BG, fg=FG,
-                  font=(FONT, 10, "bold")).pack(anchor=W, pady=(0, 6))
+                  font=(FONT, 10, "bold")).pack(side=TOP, anchor=W, pady=(0, 6))
 
-            # Scrollable slot list
-            canv = Canvas(plan_area, bg=BG, highlightthickness=0)
-            sb = Scrollbar(plan_area, orient=VERTICAL, command=canv.yview)
+            # Notes (fixed height, bottom). Packed BEFORE the expanding slot
+            # list so the list fills the remaining space and the notes keep
+            # their strip at the bottom.
+            notes = Frame(plan_area, bg=BG)
+            notes.pack(side=BOTTOM, fill=X)
+
+            # Scrollable slot list — canvas + scrollbar isolated in their own
+            # frame so the LEFT/RIGHT packing can't fight the TOP/BOTTOM
+            # packing of the summary and notes (which previously stopped the
+            # canvas from expanding to full width).
+            list_frame = Frame(plan_area, bg=BG)
+            list_frame.pack(side=TOP, fill=BOTH, expand=True)
+
+            canv = Canvas(list_frame, bg=BG, highlightthickness=0)
+            sb = Scrollbar(list_frame, orient=VERTICAL, command=canv.yview)
             inner = Frame(canv, bg=BG)
             inner.bind("<Configure>", lambda e: canv.configure(scrollregion=canv.bbox("all")))
             iw = canv.create_window((0, 0), window=inner, anchor="nw")
-            canv.bind("<Configure>", lambda e: canv.itemconfig(iw, width=e.width))
+
+            # Keep the embedded frame (and its rows) as wide as the canvas so
+            # filament names never clip.
+            def _fit(_e=None):
+                w = canv.winfo_width()
+                canv.itemconfig(iw, width=w if w > 1 else 600)
+
+            canv.itemconfig(iw, width=600)
+            canv.bind("<Configure>", _fit)
             canv.configure(yscrollcommand=sb.set)
             canv.pack(side=LEFT, fill=BOTH, expand=True)
             sb.pack(side=RIGHT, fill=Y)
+            win.after(50, _fit)
 
             for slot_no, (color, match) in enumerate(plan, start=1):
                 self._build_slot_row(inner, slot_no, color, match)
 
-            # Notes
-            notes = Frame(plan_area, bg=BG)
-            notes.pack(fill=X, side=BOTTOM)
             if overflow:
                 Label(notes, text=f"⚠️  {len(overflow)} color(s) don't fit in "
                                   f"{slots} slots. Reduce the color count, or print "
                                   f"the extras with a manual swap.",
                       bg=BG, fg="#e0a458", font=(FONT, 9), justify="left",
-                      wraplength=520).pack(anchor=W, pady=(8, 0))
+                      wraplength=610).pack(anchor=W, pady=(8, 0))
             if spec.get("shared"):
                 Label(notes, text="💧  Shared-nozzle system: every color change purges "
                                   "filament into a waste/wipe tower. Fewer colors and "
                                   "grouping similar shades reduces waste.",
                       bg=BG, fg=FG_MUTED, font=(FONT, 9), justify="left",
-                      wraplength=520).pack(anchor=W, pady=(6, 0))
+                      wraplength=610).pack(anchor=W, pady=(6, 0))
             elif spec.get("manual"):
                 Label(notes, text="🔁  Manual swaps: pause the print and change filament "
                                   "at the right layer. Almost no purge waste, but needs "
                                   "you to be present for each change.",
                       bg=BG, fg=FG_MUTED, font=(FONT, 9), justify="left",
-                      wraplength=520).pack(anchor=W, pady=(6, 0))
+                      wraplength=610).pack(anchor=W, pady=(6, 0))
             else:
                 Label(notes, text="✅  Independent-nozzle system: each head prints its own "
                                   "color with little to no purge waste.",
                       bg=BG, fg=FG_MUTED, font=(FONT, 9), justify="left",
-                      wraplength=520).pack(anchor=W, pady=(6, 0))
+                      wraplength=610).pack(anchor=W, pady=(6, 0))
 
         system_var.trace_add("write", _toggle_heads)
         heads_var.trace_add("write", lambda *a: _render_plan())
