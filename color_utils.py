@@ -82,6 +82,41 @@ def rgb_to_lab(rgb: np.ndarray) -> np.ndarray:
     return np.stack([L, a, b], axis=-1)
 
 
+def _lab_f_inv(t: np.ndarray) -> np.ndarray:
+    delta = 6.0 / 29.0
+    return np.where(t > delta, t ** 3, 3 * delta ** 2 * (t - 4.0 / 29.0))
+
+
+def lab_to_rgb(lab: np.ndarray) -> np.ndarray:
+    """
+    Convert CIE L*a*b* colors back to sRGB (0-255, float) using D65.
+
+    Inverse of :func:`rgb_to_lab`. Returns an array of the same leading shape
+    with the last axis holding (r, g, b), clamped to 0-255.
+    """
+    lab = np.asarray(lab, dtype=np.float64)
+    L, a, b = lab[..., 0], lab[..., 1], lab[..., 2]
+
+    fy = (L + 16) / 116.0
+    fx = fy + a / 500.0
+    fz = fy - b / 200.0
+
+    white = np.array([0.95047, 1.00000, 1.08883])
+    xyz = np.stack([_lab_f_inv(fx), _lab_f_inv(fy), _lab_f_inv(fz)], axis=-1) * white
+
+    # XYZ -> linear sRGB (D65)
+    matrix = np.array([
+        [3.2404542, -1.5371385, -0.4985314],
+        [-0.9692660, 1.8760108, 0.0415560],
+        [0.0556434, -0.2040259, 1.0572252],
+    ])
+    linear = xyz @ matrix.T
+    # linear -> gamma sRGB
+    srgb = np.where(linear <= 0.0031308, 12.92 * linear,
+                    1.055 * np.clip(linear, 0, None) ** (1 / 2.4) - 0.055)
+    return np.clip(srgb * 255.0, 0, 255)
+
+
 def delta_e76(lab1: np.ndarray, lab2: np.ndarray) -> np.ndarray:
     """CIE76 Delta E (plain Euclidean distance in Lab space)."""
     return np.sqrt(np.sum((lab1 - lab2) ** 2, axis=-1))
@@ -203,14 +238,15 @@ def adjust_rgb(rgb: Tuple[int, int, int], brightness: float = 1.0,
 # ---------------------------------------------------------------------------
 def _kmeans(data: np.ndarray, k: int, max_iters: int = 50, seed: int = 42):
     """
-    Simple k-means clustering.
+    Simple k-means clustering (vectorized, NumPy-only).
 
-    Returns (centroids, counts) where ``counts`` is the number of pixels
-    assigned to each centroid (used to rank colors by prevalence).
+    Returns ``(centroids, labels)``. ``labels`` gives the cluster index for
+    every input row, which lets callers compute robust per-cluster statistics
+    (medians, counts) afterwards.
     """
     rng = np.random.default_rng(seed)
     n = data.shape[0]
-    k = min(k, n)
+    k = max(1, min(k, n))
 
     # k-means++ style initialization for more stable results
     centroids = np.empty((k, data.shape[1]), dtype=np.float64)
@@ -228,76 +264,215 @@ def _kmeans(data: np.ndarray, k: int, max_iters: int = 50, seed: int = 42):
 
     labels = np.zeros(n, dtype=np.int32)
     for _ in range(max_iters):
-        # Assign step
         dists = np.sum((data[:, None, :] - centroids[None, :, :]) ** 2, axis=2)
         new_labels = np.argmin(dists, axis=1)
         if np.array_equal(new_labels, labels):
             labels = new_labels
             break
         labels = new_labels
-        # Update step
         for i in range(k):
             members = data[labels == i]
             if len(members) > 0:
                 centroids[i] = members.mean(axis=0)
             else:
-                # Reseed empty cluster to a random point
                 centroids[i] = data[rng.integers(n)]
 
-    counts = np.bincount(labels, minlength=k)
-    return centroids, counts
+    return centroids, labels
 
 
-def extract_colors(image_path: str, num_colors: int = 4, max_dimension: int = 200) -> List[Dict]:
+# ---------------------------------------------------------------------------
+# Image loading, background estimation and mask building
+# ---------------------------------------------------------------------------
+def load_rgb_array(image_path: str, max_dimension: int = 480) -> np.ndarray:
     """
-    Extract the dominant colors from an image using k-means clustering.
-
-    Args:
-        image_path: Path to the image file.
-        num_colors: Number of colors to extract (1-16).
-        max_dimension: Image is downscaled so its longest side is at most this
-            many pixels, which keeps clustering fast without hurting accuracy.
-
-    Returns:
-        A list of dicts sorted by prevalence (most dominant first), each with:
-            rgb        : (r, g, b) int tuple
-            hex        : "#RRGGBB" string
-            percentage : float share of pixels (0-100)
+    Load an image as an ``(H, W, 3)`` uint8 RGB array, flattening transparency
+    onto white and downscaling so the longest side is at most ``max_dimension``.
     """
-    num_colors = max(1, min(16, int(num_colors)))
-
     img = Image.open(image_path)
-    # Flatten transparency onto white and ensure RGB
     if img.mode in ("RGBA", "LA", "P"):
         img = img.convert("RGBA")
         background = Image.new("RGBA", img.size, (255, 255, 255, 255))
         img = Image.alpha_composite(background, img).convert("RGB")
     else:
         img = img.convert("RGB")
+    if max_dimension:
+        img.thumbnail((max_dimension, max_dimension), Image.LANCZOS)
+    return np.asarray(img, dtype=np.uint8)
 
-    # Downscale for speed
-    img.thumbnail((max_dimension, max_dimension), Image.LANCZOS)
 
-    data = np.asarray(img, dtype=np.float64).reshape(-1, 3)
-    if data.shape[0] == 0:
-        raise ValueError("The selected image contains no pixel data.")
+def estimate_background_colors(arr: np.ndarray, n_colors: int = 4,
+                               border_frac: float = 0.07) -> List[Tuple[int, int, int]]:
+    """
+    Estimate likely background colors by clustering the pixels around the image
+    border (the frame is far more likely to be background than the subject).
 
-    centroids, counts = _kmeans(data, num_colors)
+    Returns a list of ``(r, g, b)`` tuples, most common border color first.
+    """
+    h, w = arr.shape[:2]
+    bw = max(1, int(round(min(h, w) * border_frac)))
+    top = arr[:bw].reshape(-1, 3)
+    bottom = arr[-bw:].reshape(-1, 3)
+    left = arr[:, :bw].reshape(-1, 3)
+    right = arr[:, -bw:].reshape(-1, 3)
+    border = np.concatenate([top, bottom, left, right], axis=0).astype(np.float64)
+    if border.shape[0] == 0:
+        return []
 
-    total = counts.sum()
-    order = np.argsort(counts)[::-1]  # most prevalent first
+    # Cluster border pixels in Lab for perceptually sensible grouping.
+    lab = rgb_to_lab(border)
+    k = min(n_colors, max(1, len(np.unique(border, axis=0))))
+    centroids, labels = _kmeans(lab, k)
+    counts = np.bincount(labels, minlength=centroids.shape[0])
+    order = np.argsort(counts)[::-1]
 
-    results = []
+    colors = []
     for idx in order:
         if counts[idx] == 0:
             continue
-        rgb = tuple(int(round(c)) for c in centroids[idx])
+        # Representative = border pixel nearest this cluster's Lab centroid.
+        members = np.where(labels == idx)[0]
+        d = np.sum((lab[members] - centroids[idx]) ** 2, axis=1)
+        rgb = border[members[np.argmin(d)]]
+        colors.append(tuple(int(round(c)) for c in rgb))
+    return colors
+
+
+def compute_keep_mask(arr: np.ndarray, exclusions=None, crop_norm=None,
+                      extra_tol: float = 0.0) -> np.ndarray:
+    """
+    Build a boolean ``(H, W)`` keep-mask (True = analyze this pixel).
+
+    Args:
+        arr: ``(H, W, 3)`` RGB array.
+        exclusions: iterable of ``{"rgb": (r,g,b), "tol": float}`` entries. Every
+            pixel within ``tol`` (Euclidean distance in Lab) of an excluded
+            color is dropped — this works across the WHOLE image, not just a
+            connected region, so a build plate visible inside a loop is removed
+            too.
+        crop_norm: optional ``(x0, y0, x1, y1)`` in 0-1 fractions; pixels outside
+            this rectangle are dropped.
+        extra_tol: added to every exclusion tolerance (used for live tuning).
+
+    The mask is defined purely by color + crop data, so it can be recomputed at
+    any resolution and stays consistent across extraction, preview and cost.
+    """
+    h, w = arr.shape[:2]
+    keep = np.ones((h, w), dtype=bool)
+
+    if crop_norm:
+        x0, y0, x1, y1 = crop_norm
+        x0, x1 = sorted((x0, x1))
+        y0, y1 = sorted((y0, y1))
+        cx0, cx1 = int(round(x0 * w)), int(round(x1 * w))
+        cy0, cy1 = int(round(y0 * h)), int(round(y1 * h))
+        region = np.zeros((h, w), dtype=bool)
+        region[max(0, cy0):max(0, cy1), max(0, cx0):max(0, cx1)] = True
+        keep &= region
+
+    if exclusions:
+        lab = rgb_to_lab(arr.astype(np.float64))
+        for ex in exclusions:
+            ex_lab = rgb_to_lab(np.array(ex["rgb"], dtype=np.float64))
+            tol = float(ex.get("tol", 15.0)) + extra_tol
+            dist = np.sqrt(np.sum((lab - ex_lab) ** 2, axis=-1))
+            keep &= dist > tol
+
+    return keep
+
+
+# ---------------------------------------------------------------------------
+# Dominant color extraction (Lab clustering + CIEDE2000 de-duplication)
+# ---------------------------------------------------------------------------
+def extract_colors_from_pixels(pixels: np.ndarray, num_colors: int = 4,
+                               max_pixels: int = 40000, merge_delta: float = 7.0,
+                               seed: int = 42) -> List[Dict]:
+    """
+    Extract dominant colors from a flat ``(N, 3)`` array of RGB pixels.
+
+    Accuracy improvements over a plain RGB k-means:
+      * Clustering happens in **CIE Lab** space (perceptually uniform).
+      * The image is intentionally over-segmented, then near-duplicate clusters
+        are merged with **CIEDE2000** so shadows/highlights of one real color
+        don't show up as separate muddy entries.
+      * Each cluster's representative is the member pixel nearest the cluster's
+        **Lab median** (robust to shadow/specular outliers), so colors stay
+        vivid instead of being averaged into mud.
+    """
+    num_colors = max(1, min(16, int(num_colors)))
+    pixels = np.asarray(pixels, dtype=np.float64).reshape(-1, 3)
+    if pixels.shape[0] == 0:
+        raise ValueError("No pixels to analyze (the mask/crop removed everything).")
+
+    rng = np.random.default_rng(seed)
+    if pixels.shape[0] > max_pixels:
+        pixels = pixels[rng.choice(pixels.shape[0], max_pixels, replace=False)]
+
+    lab = rgb_to_lab(pixels)
+
+    # Over-segment so minority colors (e.g. a thin green accent) get their own
+    # cluster before we merge duplicates back down.
+    n_unique = len(np.unique(np.round(pixels), axis=0))
+    k_over = min(max(num_colors * 2 + 2, num_colors + 4), 16, n_unique)
+    centroids_lab, labels = _kmeans(lab, k_over, seed=seed)
+
+    clusters = []  # each: {"lab": rep_lab, "rgb": rep_rgb, "count": int}
+    for i in range(centroids_lab.shape[0]):
+        members = np.where(labels == i)[0]
+        if members.size == 0:
+            continue
+        med = np.median(lab[members], axis=0)
+        # Representative = real member pixel closest to the robust median.
+        d = np.sum((lab[members] - med) ** 2, axis=1)
+        rep_idx = members[int(np.argmin(d))]
+        clusters.append({
+            "lab": lab[rep_idx],
+            "rgb": tuple(int(round(c)) for c in pixels[rep_idx]),
+            "count": int(members.size),
+        })
+
+    # Merge near-duplicate clusters using CIEDE2000 (largest absorbs smaller).
+    clusters.sort(key=lambda c: c["count"], reverse=True)
+    merged = []
+    for c in clusters:
+        hit = None
+        for m in merged:
+            if delta_e2000(np.array(m["lab"]), np.array(c["lab"])) < merge_delta:
+                hit = m
+                break
+        if hit is not None:
+            hit["count"] += c["count"]
+        else:
+            merged.append(c)
+
+    merged.sort(key=lambda c: c["count"], reverse=True)
+    merged = merged[:num_colors]
+    total = sum(c["count"] for c in merged) or 1
+
+    results = []
+    for c in merged:
+        rgb = c["rgb"]
         results.append({
             "rgb": rgb,
             "hex": rgb_to_hex(rgb),
-            "percentage": round(100.0 * counts[idx] / total, 1),
+            "percentage": round(100.0 * c["count"] / total, 1),
         })
     return results
+
+
+def extract_colors(image_path: str, num_colors: int = 4,
+                   max_dimension: int = 240) -> List[Dict]:
+    """
+    Extract the dominant colors from an image file (no mask).
+
+    Backwards-compatible entry point: loads the image and delegates to
+    :func:`extract_colors_from_pixels`. For background-aware extraction, build a
+    keep-mask with :func:`compute_keep_mask` and call
+    ``extract_colors_from_pixels(arr[mask])`` directly.
+    """
+    arr = load_rgb_array(image_path, max_dimension)
+    if arr.size == 0:
+        raise ValueError("The selected image contains no pixel data.")
+    return extract_colors_from_pixels(arr.reshape(-1, 3), num_colors)
 
 
 # ---------------------------------------------------------------------------

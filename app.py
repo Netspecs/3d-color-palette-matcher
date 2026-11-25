@@ -21,10 +21,10 @@ import sys
 import threading
 import webbrowser
 from tkinter import (
-    Tk, Frame, Label, Button, Canvas, StringVar, IntVar, DoubleVar, OptionMenu,
-    Entry, Text, Toplevel, Listbox, Scale, Spinbox, HORIZONTAL, filedialog,
-    messagebox, simpledialog, colorchooser, Scrollbar, LEFT, RIGHT, BOTH, X, Y,
-    TOP, BOTTOM, W, E, VERTICAL, END, SINGLE,
+    Tk, Frame, Label, Button, Canvas, StringVar, IntVar, DoubleVar, BooleanVar,
+    OptionMenu, Entry, Text, Toplevel, Listbox, Scale, Spinbox, Checkbutton,
+    HORIZONTAL, filedialog, messagebox, simpledialog, colorchooser, Scrollbar,
+    LEFT, RIGHT, BOTH, X, Y, TOP, BOTTOM, W, E, VERTICAL, END, SINGLE,
 )
 from tkinter import ttk
 
@@ -37,7 +37,20 @@ import cost as cost_calc
 import palette_store as pstore
 import slicer_export as sexport
 
-APP_VERSION = "2.0"
+APP_VERSION = "2.1"
+
+# Optional AI background removal — used ONLY if the user already has it installed.
+# It is never a required dependency (keeps PyInstaller builds small).
+try:
+    import rembg  # noqa: F401
+    _REMBG_AVAILABLE = True
+except Exception:
+    _REMBG_AVAILABLE = False
+
+# Working resolution for the analysis/mask image (longest side, px).
+WORK_MAX_DIM = 480
+# Max size of the on-screen interactive preview canvas.
+CANVAS_W, CANVAS_H = 316, 300
 
 # ---------------------------------------------------------------------------
 # Multi-material print systems for the Print Planner.
@@ -97,6 +110,19 @@ class ColorMatcherApp:
         self.preview_img = None          # keep a reference to avoid GC
         self.extracted = []              # list of extracted color dicts
         self.results = []                # list of (color, matches) for export
+
+        # --- Background removal / mask state (v2.1) ---
+        self.work_arr = None             # (H,W,3) uint8 analysis image
+        self.disp_arr = None             # (h,w,3) uint8 on-screen thumbnail
+        self.disp_tk = None              # PhotoImage ref for the canvas
+        self.disp_box = (0, 0, 0, 0)     # (x, y, w, h) image placement on canvas
+        self.excluded_colors = []        # list of (r,g,b) removed as background
+        self.crop_norm = None            # (x0,y0,x1,y1) in 0-1, or None
+        self.ai_mask = None              # optional rembg subject mask (work res)
+        self.interaction_mode = StringVar(value="none")  # none|remove|eyedrop|crop
+        self.mask_tol = DoubleVar(value=18.0)            # ΔE (Lab) removal tolerance
+        self.show_mask = BooleanVar(value=True)
+        self._crop_drag = None           # transient (x0,y0) during a crop drag
 
         self.num_colors = IntVar(value=4)
         self.brand_var = StringVar(value="All")
@@ -294,7 +320,7 @@ class ColorMatcherApp:
         body = Frame(self.root, bg=BG)
         body.pack(side=TOP, fill=BOTH, expand=True, padx=12, pady=8)
 
-        # Left: image preview / drop zone
+        # Left: interactive image preview / drop zone + background tools
         left = Frame(body, bg=BG_PANEL, width=340)
         left.pack(side=LEFT, fill=Y)
         left.pack_propagate(False)
@@ -302,28 +328,37 @@ class ColorMatcherApp:
         Label(left, text="Image", bg=BG_PANEL, fg=FG_MUTED,
               font=(FONT, 10, "bold")).pack(anchor=W, padx=12, pady=(10, 4))
 
-        self.drop_zone = Frame(left, bg=BG_CARD, height=300)
-        self.drop_zone.pack(fill=X, padx=12)
+        self.drop_zone = Frame(left, bg=BG_CARD, width=CANVAS_W, height=CANVAS_H)
+        self.drop_zone.pack(padx=12)
         self.drop_zone.pack_propagate(False)
 
+        # The preview is now a Canvas so we can click/drag on the image for
+        # background removal, the eyedropper and crop selection.
+        self.img_canvas = Canvas(self.drop_zone, bg=BG_CARD, highlightthickness=0,
+                                 width=CANVAS_W, height=CANVAS_H, cursor="arrow")
+        self.img_canvas.pack(fill=BOTH, expand=True)
         dnd_hint = ("Drag & drop an image here\nor click 'Load Image'"
                     if _DND_AVAILABLE else
-                    "Click 'Load Image' to begin\n(install tkinterdnd2 for drag & drop)")
-        self.preview_label = Label(
-            self.drop_zone, text=dnd_hint, bg=BG_CARD, fg=FG_MUTED,
-            font=(FONT, 10), justify="center", wraplength=280,
+                    "Click 'Load Image' to begin\n(install tkinterdnd2\nfor drag & drop)")
+        self._canvas_hint = self.img_canvas.create_text(
+            CANVAS_W // 2, CANVAS_H // 2, text=dnd_hint, fill=FG_MUTED,
+            font=(FONT, 10), justify="center", width=CANVAS_W - 30,
         )
-        self.preview_label.pack(expand=True)
+        self.img_canvas.bind("<Button-1>", self._on_canvas_press)
+        self.img_canvas.bind("<B1-Motion>", self._on_canvas_drag)
+        self.img_canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
 
         if _DND_AVAILABLE:
-            self.drop_zone.drop_target_register(DND_FILES)
-            self.drop_zone.dnd_bind("<<Drop>>", self._on_drop)
+            self.img_canvas.drop_target_register(DND_FILES)
+            self.img_canvas.dnd_bind("<<Drop>>", self._on_drop)
+
+        self._build_mask_tools(left)
 
         self.path_label = Label(
             left, text="No image loaded", bg=BG_PANEL, fg=FG_MUTED,
             font=(FONT, 9), wraplength=310, justify="left",
         )
-        self.path_label.pack(anchor=W, padx=12, pady=8)
+        self.path_label.pack(anchor=W, padx=12, pady=(6, 8))
 
         # Right: results (scrollable)
         right = Frame(body, bg=BG)
@@ -371,6 +406,257 @@ class ColorMatcherApp:
               bg=BG_PANEL, fg=FG_MUTED, font=(FONT, 9)).pack(side=RIGHT, padx=12)
 
     # ------------------------------------------------------------------ #
+    # Background-removal tools (v2.1)
+    # ------------------------------------------------------------------ #
+    def _build_mask_tools(self, parent):
+        tools = Frame(parent, bg=BG_PANEL)
+        tools.pack(fill=X, padx=12, pady=(8, 0))
+        Label(tools, text="Background removal & tools", bg=BG_PANEL, fg=FG_MUTED,
+              font=(FONT, 9, "bold")).pack(anchor=W)
+
+        self.mode_buttons = {}
+
+        def _mode_btn(parent, label, mode):
+            b = Button(parent, text=label, command=lambda m=mode: self._set_mode(m),
+                       bg=BG_CARD, fg=FG, activebackground=ACCENT,
+                       activeforeground="white", relief="flat", font=(FONT, 8),
+                       padx=6, pady=3, cursor="hand2", bd=0)
+            b.pack(side=LEFT, padx=(0, 4))
+            self.mode_buttons[mode] = b
+            return b
+
+        row1 = Frame(tools, bg=BG_PANEL)
+        row1.pack(fill=X, pady=(5, 2))
+        _mode_btn(row1, "🩹 Pick-remove", "remove")
+        _mode_btn(row1, "💧 Eyedropper", "eyedrop")
+        _mode_btn(row1, "⬚ Crop", "crop")
+
+        row2 = Frame(tools, bg=BG_PANEL)
+        row2.pack(fill=X, pady=2)
+        Button(row2, text="✨ Auto BG", command=self._auto_remove_bg, bg=BG_CARD,
+               fg=FG, activebackground=ACCENT, activeforeground="white",
+               relief="flat", font=(FONT, 8), padx=6, pady=3, cursor="hand2",
+               bd=0).pack(side=LEFT, padx=(0, 4))
+        if _REMBG_AVAILABLE:
+            Button(row2, text="🤖 AI cut-out", command=self._ai_remove_bg, bg=BG_CARD,
+                   fg=FG, activebackground=ACCENT, activeforeground="white",
+                   relief="flat", font=(FONT, 8), padx=6, pady=3, cursor="hand2",
+                   bd=0).pack(side=LEFT, padx=(0, 4))
+        Button(row2, text="↺ Reset", command=self._reset_mask, bg=BG_CARD,
+               fg="#e0a458", activebackground=BG_PANEL, activeforeground="#e0a458",
+               relief="flat", font=(FONT, 8), padx=6, pady=3, cursor="hand2",
+               bd=0).pack(side=LEFT, padx=(0, 4))
+
+        row3 = Frame(tools, bg=BG_PANEL)
+        row3.pack(fill=X, pady=(2, 0))
+        Label(row3, text="Tolerance", bg=BG_PANEL, fg=FG_MUTED,
+              font=(FONT, 8)).pack(side=LEFT)
+        Scale(row3, from_=2, to=45, resolution=1, orient=HORIZONTAL,
+              variable=self.mask_tol, command=lambda *_: self._on_tol_change(),
+              bg=BG_PANEL, fg=FG, highlightthickness=0, troughcolor=BG_CARD,
+              activebackground=ACCENT, length=120, showvalue=True,
+              font=(FONT, 7)).pack(side=LEFT, padx=(2, 6))
+        Checkbutton(row3, text="Show removed", variable=self.show_mask,
+                    command=self._update_canvas, bg=BG_PANEL, fg=FG_MUTED,
+                    selectcolor=BG_CARD, activebackground=BG_PANEL,
+                    activeforeground=FG, font=(FONT, 8), bd=0,
+                    highlightthickness=0).pack(side=LEFT)
+
+        self._set_mode("none")
+
+    def _set_mode(self, mode):
+        """Toggle an interaction mode (clicking the active one turns it off)."""
+        if self.interaction_mode.get() == mode and mode != "none":
+            mode = "none"
+        self.interaction_mode.set(mode)
+        for m, btn in self.mode_buttons.items():
+            active = (m == mode)
+            btn.config(bg=ACCENT if active else BG_CARD,
+                       fg="white" if active else FG)
+        cursors = {"remove": "target", "eyedrop": "dotbox", "crop": "crosshair"}
+        try:
+            self.img_canvas.config(cursor=cursors.get(mode, "arrow"))
+        except Exception:
+            pass
+        hints = {
+            "remove": "Click the background/plate to remove that color everywhere.",
+            "eyedrop": "Click a spot to add that exact color to your palette.",
+            "crop": "Drag a rectangle to analyze only that region.",
+            "none": "",
+        }
+        if hints.get(mode):
+            self.status.set(hints[mode])
+
+    def _on_tol_change(self):
+        # Re-render the live mask preview as the tolerance slider moves.
+        if self.work_arr is not None:
+            self._update_canvas()
+
+    def _current_exclusions(self):
+        tol = float(self.mask_tol.get())
+        return [{"rgb": c, "tol": tol} for c in self.excluded_colors]
+
+    def _auto_remove_bg(self):
+        if self.work_arr is None:
+            messagebox.showinfo("No image", "Load an image first.")
+            return
+        bg_colors = cu.estimate_background_colors(self.work_arr, n_colors=3)
+        added = 0
+        for c in bg_colors:
+            if c not in self.excluded_colors:
+                self.excluded_colors.append(c)
+                added += 1
+        self._update_canvas()
+        self.status.set(f"Auto background: excluded {added} border color(s). "
+                        "Use Pick-remove or Tolerance to fine-tune, then Match.")
+
+    def _ai_remove_bg(self):
+        """Optional AI subject cut-out (only if rembg is installed)."""
+        if self.work_arr is None:
+            return
+        try:
+            from rembg import remove
+            out = remove(Image.fromarray(self.work_arr))
+            alpha = np.asarray(out.convert("RGBA"))[:, :, 3]
+            self.ai_mask = alpha > 128
+            self._update_canvas()
+            self.status.set("AI cut-out applied — only the subject is kept.")
+        except Exception as exc:
+            messagebox.showerror("AI cut-out failed", str(exc))
+
+    def _reset_mask(self):
+        self.excluded_colors = []
+        self.crop_norm = None
+        self.ai_mask = None
+        self._update_canvas()
+        self.status.set("Background selection reset — the whole image is analyzed.")
+
+    # --- canvas coordinate mapping & sampling --- #
+    def _canvas_to_disp(self, cx, cy):
+        x, y, w, h = self.disp_box
+        dx, dy = int(cx - x), int(cy - y)
+        if 0 <= dx < w and 0 <= dy < h:
+            return dx, dy
+        return None
+
+    def _sample_color(self, cx, cy):
+        pos = self._canvas_to_disp(cx, cy)
+        if pos is None or self.disp_arr is None:
+            return None
+        dx, dy = pos
+        return tuple(int(v) for v in self.disp_arr[dy, dx])
+
+    def _on_canvas_press(self, event):
+        if self.work_arr is None:
+            return
+        mode = self.interaction_mode.get()
+        if mode == "remove":
+            rgb = self._sample_color(event.x, event.y)
+            if rgb and rgb not in self.excluded_colors:
+                self.excluded_colors.append(rgb)
+                self._update_canvas()
+                self.status.set(f"Removing color {cu.rgb_to_hex(rgb)} "
+                                f"({len(self.excluded_colors)} removed). Re-match to apply.")
+        elif mode == "eyedrop":
+            rgb = self._sample_color(event.x, event.y)
+            if rgb:
+                self._add_eyedropper_color(rgb)
+        elif mode == "crop":
+            pos = self._canvas_to_disp(event.x, event.y)
+            if pos is not None:
+                self._crop_drag = (event.x, event.y)
+
+    def _on_canvas_drag(self, event):
+        if self.interaction_mode.get() == "crop" and self._crop_drag:
+            self.img_canvas.delete("cropsel")
+            x0, y0 = self._crop_drag
+            self.img_canvas.create_rectangle(x0, y0, event.x, event.y,
+                                             outline=ACCENT, width=2, tags="cropsel")
+
+    def _on_canvas_release(self, event):
+        if self.interaction_mode.get() == "crop" and self._crop_drag:
+            x0, y0 = self._crop_drag
+            self._crop_drag = None
+            p0 = self._clamp_to_disp(x0, y0)
+            p1 = self._clamp_to_disp(event.x, event.y)
+            x, y, w, h = self.disp_box
+            if abs(p1[0] - p0[0]) < 5 or abs(p1[1] - p0[1]) < 5:
+                return  # ignore tiny drags
+            self.crop_norm = (
+                (p0[0]) / w, (p0[1]) / h, (p1[0]) / w, (p1[1]) / h,
+            )
+            self._update_canvas()
+            self.status.set("Crop set — only the selected region will be analyzed. "
+                            "Re-match to apply.")
+
+    def _clamp_to_disp(self, cx, cy):
+        x, y, w, h = self.disp_box
+        return (min(max(cx - x, 0), w), min(max(cy - y, 0), h))
+
+    def _add_eyedropper_color(self, rgb):
+        color = {"rgb": rgb, "hex": cu.rgb_to_hex(rgb), "percentage": 0.0,
+                 "added": True}
+        matches = cu.match_filaments(rgb, self.filaments, top_n=3,
+                                     brand_filter=self.brand_var.get(),
+                                     material_filter=self.material_var.get())
+        self.extracted.append(color)
+        self.results.append((color, matches))
+        self._display_results()
+        self.status.set(f"Added {cu.rgb_to_hex(rgb)} from the image to your palette.")
+
+    # --- mask computation & canvas rendering --- #
+    def _display_keep_mask(self):
+        """Keep-mask at display resolution (True = kept)."""
+        if self.disp_arr is None:
+            return None
+        mask = cu.compute_keep_mask(self.disp_arr, self._current_exclusions(),
+                                    self.crop_norm)
+        ai = getattr(self, "ai_mask", None)
+        if ai is not None:
+            ai_disp = np.asarray(Image.fromarray(ai.astype(np.uint8) * 255)
+                                 .resize((mask.shape[1], mask.shape[0]),
+                                         Image.NEAREST)) > 128
+            mask &= ai_disp
+        return mask
+
+    def _update_canvas(self):
+        """Redraw the preview image with the mask overlay and crop rectangle."""
+        self.img_canvas.delete("all")
+        if self.disp_arr is None:
+            self._canvas_hint = self.img_canvas.create_text(
+                CANVAS_W // 2, CANVAS_H // 2,
+                text="Click 'Load Image' to begin", fill=FG_MUTED,
+                font=(FONT, 10), justify="center")
+            return
+
+        disp = self.disp_arr.copy()
+        h, w = disp.shape[:2]
+        if self.show_mask.get():
+            keep = self._display_keep_mask()
+            if keep is not None and not keep.all():
+                removed = ~keep
+                # Checkerboard dim for removed pixels so it's obvious what's cut.
+                yy, xx = np.mgrid[0:h, 0:w]
+                check = (((xx // 6) + (yy // 6)) % 2).astype(bool)
+                dark = np.array([40, 42, 54], dtype=np.uint8)
+                light = np.array([70, 72, 86], dtype=np.uint8)
+                overlay = np.where(check[..., None], light, dark)
+                disp[removed] = (0.25 * disp[removed]
+                                 + 0.75 * overlay[removed]).astype(np.uint8)
+
+        self.disp_tk = ImageTk.PhotoImage(Image.fromarray(disp))
+        x = (CANVAS_W - w) // 2
+        y = (CANVAS_H - h) // 2
+        self.disp_box = (x, y, w, h)
+        self.img_canvas.create_image(x, y, anchor="nw", image=self.disp_tk)
+
+        if self.crop_norm:
+            x0, y0, x1, y1 = self.crop_norm
+            self.img_canvas.create_rectangle(
+                x + x0 * w, y + y0 * h, x + x1 * w, y + y1 * h,
+                outline=ACCENT, width=2, dash=(4, 2))
+
+    # ------------------------------------------------------------------ #
     # Event handlers
     # ------------------------------------------------------------------ #
     def _on_mousewheel(self, event):
@@ -396,17 +682,25 @@ class ColorMatcherApp:
             return
 
         self.image_path = path
+        # Build the analysis-resolution working array and the on-screen thumbnail.
+        self.work_arr = cu.load_rgb_array(path, WORK_MAX_DIM)
         self._render_preview(img)
+        # Loading a new image clears any previous background selection.
+        self.excluded_colors = []
+        self.crop_norm = None
+        self.ai_mask = None
+        self._set_mode("none")
+        self._update_canvas()
         self.path_label.config(text=os.path.basename(path))
         self.match_btn.config(state="normal")
-        self.status.set(f"Loaded: {os.path.basename(path)} — click 'Match Colors'.")
+        self.status.set(f"Loaded: {os.path.basename(path)} — remove the background "
+                        "if needed, then click 'Match Colors'.")
         self._show_placeholder("Click '🔍 Match Colors' to analyze this image.")
 
     def _render_preview(self, img):
         thumb = img.convert("RGB").copy()
-        thumb.thumbnail((300, 280), Image.LANCZOS)
-        self.preview_img = ImageTk.PhotoImage(thumb)
-        self.preview_label.config(image=self.preview_img, text="")
+        thumb.thumbnail((CANVAS_W, CANVAS_H), Image.LANCZOS)
+        self.disp_arr = np.asarray(thumb, dtype=np.uint8)
 
     # ------------------------------------------------------------------ #
     # Matching workflow
@@ -423,7 +717,7 @@ class ColorMatcherApp:
     def _do_matching(self):
         try:
             n = self.num_colors.get()
-            extracted = cu.extract_colors(self.image_path, n)
+            extracted = self._extract_with_mask(n)
 
             # Optional brightness / saturation tweak on the extracted colors
             bright = self.brightness.get()
@@ -449,6 +743,20 @@ class ColorMatcherApp:
             self.root.after(0, self._display_results)
         except Exception as exc:
             self.root.after(0, lambda e=exc: self._matching_error(e))
+
+    def _extract_with_mask(self, n):
+        """Extract palette colors from the working image, honoring the mask/crop."""
+        if self.work_arr is None:
+            return cu.extract_colors(self.image_path, n)
+        keep = cu.compute_keep_mask(self.work_arr, self._current_exclusions(),
+                                    self.crop_norm)
+        if self.ai_mask is not None and self.ai_mask.shape == keep.shape:
+            keep &= self.ai_mask
+        pixels = self.work_arr.reshape(-1, 3)[keep.reshape(-1)]
+        # Safety: if the selection removed (almost) everything, fall back to all.
+        if pixels.shape[0] < 50:
+            pixels = self.work_arr.reshape(-1, 3)
+        return cu.extract_colors_from_pixels(pixels, n)
 
     def _matching_error(self, exc):
         messagebox.showerror("Error", f"Something went wrong while matching:\n{exc}")
@@ -489,6 +797,19 @@ class ColorMatcherApp:
             f"Matched {len(self.results)} color(s) against {len(self.filaments)} filaments{no_match_note}."
         )
         self.results_canvas.yview_moveto(0)
+
+    def _remove_color(self, color_ref):
+        """Drop one extracted color from the results, cost and planner."""
+        self.results = [(c, m) for (c, m) in self.results if c is not color_ref]
+        self.extracted = [c for c in self.extracted if c is not color_ref]
+        if self.results:
+            self._display_results()
+            self.status.set("Removed a color from the palette.")
+        else:
+            self._show_placeholder("All colors removed. Match an image or enter colors.")
+            for btn in (self.export_btn, self.save_btn, self.plan_btn,
+                        self.preview_btn):
+                btn.config(state="disabled")
 
     def _parse_grams(self):
         try:
@@ -544,10 +865,21 @@ class ColorMatcherApp:
                         highlightbackground="#11121a")
         swatch.pack(side=LEFT)
 
+        # Remove-this-color (✕) button so a wrong/background color can be
+        # dropped from the matches, cost estimate and planner.
+        Button(head, text="✕", command=lambda c=color: self._remove_color(c),
+               bg=BG_CARD, fg="#e06c6c", activebackground=BG_PANEL,
+               activeforeground="#e06c6c", relief="flat", font=(FONT, 11, "bold"),
+               padx=6, pady=0, cursor="hand2", bd=0).pack(side=RIGHT, anchor="n")
+
         info = Frame(head, bg=BG_CARD)
         info.pack(side=LEFT, padx=12)
         r, g, b = color["rgb"]
-        Label(info, text=f"Color {idx}  •  {color['percentage']}% of image",
+        src = "  •  added from image" if color.get("added") else " of image"
+        pct_txt = (f"Color {idx}  •  {color['percentage']}%{src}"
+                   if not color.get("added")
+                   else f"Color {idx}{src}")
+        Label(info, text=pct_txt,
               bg=BG_CARD, fg=FG_MUTED, font=(FONT, 9)).pack(anchor=W)
         Label(info, text=color["hex"], bg=BG_CARD, fg=FG,
               font=(FONT, 13, "bold")).pack(anchor=W)
@@ -713,7 +1045,15 @@ class ColorMatcherApp:
         # Manual colors aren't tied to an image file.
         self.image_path = None
         self.preview_img = None
-        self.preview_label.config(image="", text="Colors entered manually\n(no image)")
+        self.work_arr = None
+        self.disp_arr = None
+        self.excluded_colors = []
+        self.crop_norm = None
+        self.ai_mask = None
+        self.img_canvas.delete("all")
+        self.img_canvas.create_text(CANVAS_W // 2, CANVAS_H // 2,
+                                    text="Colors entered manually\n(no image)",
+                                    fill=FG_MUTED, font=(FONT, 10), justify="center")
         self.path_label.config(text=f"{n} color(s) entered manually")
         self.extracted = extracted
         self.results = results
@@ -972,7 +1312,9 @@ class ColorMatcherApp:
         img.thumbnail((max_dim, max_dim), Image.LANCZOS)
         original = img.copy()
 
-        arr = np.asarray(img, dtype=np.float64).reshape(-1, 3)
+        img_arr = np.asarray(img)
+        shape = img_arr.shape
+        arr = img_arr.astype(np.float64).reshape(-1, 3)
 
         palette_rgb = np.array([c["rgb"] for c, _ in self.results], dtype=np.float64)
         # Best-match filament color per palette color (fall back to the color itself)
@@ -989,7 +1331,26 @@ class ColorMatcherApp:
         d2 = np.einsum("ijk,ijk->ij", diff, diff)
         nearest = np.argmin(d2, axis=1)
 
-        out = target_rgb[nearest].reshape(*np.asarray(img).shape)
+        out = target_rgb[nearest].reshape(*shape)
+
+        # Respect the background mask/crop: removed areas are shown as a neutral
+        # checkerboard instead of being repainted, so the preview matches what
+        # actually gets analyzed and printed.
+        keep = cu.compute_keep_mask(img_arr, self._current_exclusions(),
+                                    self.crop_norm)
+        if self.ai_mask is not None:
+            ai_disp = np.asarray(Image.fromarray(self.ai_mask.astype(np.uint8) * 255)
+                                 .resize((shape[1], shape[0]), Image.NEAREST)) > 128
+            keep &= ai_disp
+        if not keep.all():
+            h, w = shape[:2]
+            yy, xx = np.mgrid[0:h, 0:w]
+            check = (((xx // 8) + (yy // 8)) % 2).astype(bool)
+            board = np.where(check[..., None], np.array([70, 72, 86]),
+                             np.array([45, 47, 60])).astype(np.float64)
+            removed = ~keep
+            out[removed] = board[removed]
+
         rendered = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
         return original, rendered
 

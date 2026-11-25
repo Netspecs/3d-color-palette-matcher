@@ -18,6 +18,20 @@ multi-material systems (or plain manual filament swaps).
 
 ![demo](docs/demo.gif)
 
+### ✨ New in v2.1
+
+![v2.1 before / after](docs/v2_1_before_after.png)
+
+- **Background removal** — fixes the "false colors" bug where a textured build
+  plate took over the palette. **✨ Auto BG**, **🩹 Pick-remove** (click the plate
+  + tolerance slider), **⬚ Crop**, a **live mask preview** (removed = dimmed
+  checkerboard), and an optional **🤖 AI cut-out** if `rembg` is installed.
+- **Sharper extraction** — CIE-Lab clustering with **CIEDE2000 duplicate merging**
+  and robust representative colors; up to **16 colors**.
+- **💧 Eyedropper** — click to add an exact color — and a per-color **✕** to drop a
+  wrong match from the results, cost and planner.
+- **259 filaments across 16 brands** — added navies, greens and grays/silvers.
+
 ### ✨ New in v2.0
 
 ![v2.0 showcase](docs/v2_showcase.png)
@@ -25,7 +39,6 @@ multi-material systems (or plain manual filament swaps).
 - **CIEDE2000** perceptual color matching (a big accuracy jump over CIE76)
 - **Print System Planner** — assign colors to slots for Bambu AMS (4/8/16), Prusa MMU3, tool changers, IDEX, or manual swaps
 - **Filament Preview** — see your image re-rendered in the matched filament colors
-- **225 filaments across 7 materials** — added TPU, Silk, Matte & Wood lines
 - **Direct color input** — match hex codes with no image needed
 
 ---
@@ -58,11 +71,17 @@ Double-click to run. No install needed! 🎉
 ## ✨ Features
 
 - 🖼️ **Load images** via **Browse** or **drag-and-drop** (JPG, PNG, BMP, GIF, TIFF, WEBP).
+- 🧹 **Background removal** so the build plate / table never hijacks the palette —
+  **Auto BG**, **Pick-remove** (click a color + tolerance slider), **Crop**, a live
+  **mask preview**, and an optional **AI cut-out** (if `rembg` is installed).
+- 💧 **Eyedropper** to add an exact color from the image, and a per-color **✕** to
+  drop a wrong match from the results, cost and planner.
 - 🎨 **Enter colors directly** — paste/type hex codes or use a color picker, no image needed.
-- 🎯 **Dominant color extraction** using **k-means clustering** (NumPy — no heavy ML deps).
+- 🎯 **Dominant color extraction** using **Lab k-means clustering** with **CIEDE2000
+  duplicate merging** and robust representative colors (NumPy — no heavy ML deps).
 - 🎚️ **Configurable palette size** — extract **1 to 16 colors** (great for 8/16-slot AMS).
 - 🌈 **Brightness & saturation sliders** to fine-tune extracted colors before matching.
-- 🧵 **Big filament database** — **225+ filaments across 16 brands**
+- 🧵 **Big filament database** — **259 filaments across 16 brands**
   (Bambu Lab, Hatchbox, Prusament, eSun, Polymaker, Overture, SUNLU, ColorFabb,
   MatterHackers, Atomic Filament, IC3D, Amazon Basics, Inland, Elegoo, Creality,
   3D Solutech) covering **PLA, PETG, ABS, TPU, Silk, Matte and Wood**.
