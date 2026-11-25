@@ -344,6 +344,54 @@ _FILAMENTS: List[Dict[str, str]] = [
     {"brand": "Polymaker", "material": "Wood", "name": "PolyWood Natural", "hex": "#B58A55", "url": "https://shop.polymaker.com/products/polywood"},
     {"brand": "SUNLU", "material": "Wood", "name": "Wood Natural", "hex": "#A9773F", "url": "https://www.sunlu.com/collections/wood-pla-filament"},
     {"brand": "SUNLU", "material": "Wood", "name": "Wood Dark", "hex": "#5E4126", "url": "https://www.sunlu.com/collections/wood-pla-filament"},
+
+    # ================================================================== #
+    # v2.1 — expanded coverage of navies / blues, greens, grays & silver  #
+    # (the color families a real multi-color sports print needs). Real    #
+    # product lines only; hex values are commonly-cited approximations.   #
+    # ================================================================== #
+
+    # ---- Navies & darker blues ---- #
+    {"brand": "Bambu Lab", "material": "PLA", "name": "Blue Gray", "hex": "#5B6579", "url": "https://us.store.bambulab.com/products/pla-basic-filament"},
+    {"brand": "Polymaker", "material": "PLA", "name": "PolyTerra Navy Blue", "hex": "#0F2A4A", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "PLA", "name": "PolyLite True Blue", "hex": "#1C4E9C", "url": "https://shop.polymaker.com/products/polylite-pla"},
+    {"brand": "eSun", "material": "PLA", "name": "PLA+ Dark Blue", "hex": "#1B3A6B", "url": "https://www.esun3d.com/pla-pro-product/"},
+    {"brand": "Overture", "material": "PLA", "name": "Navy Blue", "hex": "#0E2148", "url": "https://overture3d.com/products/overture-pla-filament-1-75mm"},
+    {"brand": "Hatchbox", "material": "PLA", "name": "Navy Blue", "hex": "#0A1F44", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Hatchbox", "material": "PLA", "name": "Dark Blue", "hex": "#15315E", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Prusament", "material": "PLA", "name": "Royal Blue", "hex": "#204BB0", "url": "https://www.prusa3d.com/category/prusament-pla/"},
+    {"brand": "Prusament", "material": "PLA", "name": "Azure Blue", "hex": "#1C6AC6", "url": "https://www.prusa3d.com/category/prusament-pla/"},
+    {"brand": "Elegoo", "material": "PLA", "name": "Navy Blue", "hex": "#15315C", "url": "https://www.elegoo.com/collections/pla-filament"},
+    {"brand": "Elegoo", "material": "PLA", "name": "Blue", "hex": "#1E4FA1", "url": "https://www.elegoo.com/collections/pla-filament"},
+    {"brand": "SUNLU", "material": "PLA", "name": "Dark Blue", "hex": "#163A6B", "url": "https://www.sunlu.com/collections/pla-filament"},
+
+    # ---- Greens (incl. bright / action greens) ---- #
+    {"brand": "Bambu Lab", "material": "PLA", "name": "Grass Green", "hex": "#61C680", "url": "https://us.store.bambulab.com/products/pla-basic-filament"},
+    {"brand": "Bambu Lab", "material": "PLA", "name": "Mistletoe Green", "hex": "#3F8E43", "url": "https://us.store.bambulab.com/products/pla-basic-filament"},
+    {"brand": "Polymaker", "material": "PLA", "name": "PolyTerra Apple Green", "hex": "#7DBB42", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "PLA", "name": "PolyLite Green", "hex": "#2FA24E", "url": "https://shop.polymaker.com/products/polylite-pla"},
+    {"brand": "eSun", "material": "PLA", "name": "PLA+ Peak Green", "hex": "#00A650", "url": "https://www.esun3d.com/pla-pro-product/"},
+    {"brand": "eSun", "material": "PLA", "name": "PLA+ Pine Green", "hex": "#1C6B4C", "url": "https://www.esun3d.com/pla-pro-product/"},
+    {"brand": "Prusament", "material": "PLA", "name": "Pine Green", "hex": "#1F7A4D", "url": "https://www.prusa3d.com/category/prusament-pla/"},
+    {"brand": "Elegoo", "material": "PLA", "name": "Green", "hex": "#2FA84F", "url": "https://www.elegoo.com/collections/pla-filament"},
+    {"brand": "SUNLU", "material": "PLA", "name": "Green", "hex": "#2BA44C", "url": "https://www.sunlu.com/collections/pla-filament"},
+
+    # ---- Grays, silvers & cool neutrals ---- #
+    {"brand": "Bambu Lab", "material": "Matte", "name": "Matte Nardo Gray", "hex": "#757A7D", "url": "https://us.store.bambulab.com/products/pla-matte"},
+    {"brand": "Bambu Lab", "material": "PLA", "name": "Light Silver", "hex": "#C7CACB", "url": "https://us.store.bambulab.com/products/pla-basic-filament"},
+    {"brand": "Polymaker", "material": "PLA", "name": "PolyTerra Fossil Grey", "hex": "#9A9A94", "url": "https://shop.polymaker.com/products/polyterra-pla"},
+    {"brand": "Polymaker", "material": "PLA", "name": "PolyLite Silver", "hex": "#C0C2C4", "url": "https://shop.polymaker.com/products/polylite-pla"},
+    {"brand": "eSun", "material": "PLA", "name": "PLA+ Light Gray", "hex": "#C9CBCA", "url": "https://www.esun3d.com/pla-pro-product/"},
+    {"brand": "eSun", "material": "PLA", "name": "PLA+ Silver", "hex": "#BFC1C2", "url": "https://www.esun3d.com/pla-pro-product/"},
+    {"brand": "Overture", "material": "PLA", "name": "Space Gray", "hex": "#5C5F66", "url": "https://overture3d.com/products/overture-pla-filament-1-75mm"},
+    {"brand": "Overture", "material": "PLA", "name": "Silver", "hex": "#C4C6C8", "url": "https://overture3d.com/products/overture-pla-filament-1-75mm"},
+    {"brand": "Hatchbox", "material": "PLA", "name": "Silver", "hex": "#B9BBBD", "url": "https://www.amazon.com/stores/HATCHBOX/page/BE84484A-154A-49EC-BF3F-FF4CE6E4ECB7"},
+    {"brand": "Prusament", "material": "PLA", "name": "Galaxy Silver", "hex": "#8A8D92", "url": "https://www.prusa3d.com/category/prusament-pla/"},
+    {"brand": "Elegoo", "material": "PLA", "name": "Gray", "hex": "#9B9FA2", "url": "https://www.elegoo.com/collections/pla-filament"},
+    {"brand": "SUNLU", "material": "PLA", "name": "Grey", "hex": "#9DA0A2", "url": "https://www.sunlu.com/collections/pla-filament"},
+    {"brand": "SUNLU", "material": "PLA", "name": "Silver", "hex": "#BDBFC1", "url": "https://www.sunlu.com/collections/pla-filament"},
+
+    # ---- A few extra common colors (whites / blacks for fuller palettes) ---- #
 ]
 
 

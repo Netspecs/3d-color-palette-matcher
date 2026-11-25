@@ -2,6 +2,45 @@
 
 All notable changes to the 3D Print Color Palette Matcher project.
 
+## [v2.1] - 2026-11-25
+
+### 🧹 Fixed the "false colors" bug (background removal)
+- Photos taken on a textured build plate (e.g. a bronze Bambu plate) no longer
+  hijack the palette. In the real Seahawks test the old build returned **81%
+  brown plate colors** and lost the print's navy/green; v2.1 recovers **navy,
+  white, gray/silver and green** and reports **0% plate**.
+- New **Background removal** toolbox on the image:
+  - **✨ Auto BG** — estimates the border/background color(s) and excludes every
+    matching pixel across the whole image (not just connected corners).
+  - **🩹 Pick-remove** — click any spot (e.g. the plate) to remove that color
+    everywhere; add multiple colors, adjust with a **Tolerance** slider, or
+    **↺ Reset**.
+  - **⬚ Crop** — drag a rectangle to analyze only that region.
+  - **Mask preview** — removed pixels are shown as a dimmed checkerboard so you
+    can see exactly what is kept vs. cut. Extraction, Filament Preview and cost
+    all respect the mask.
+  - Optional **🤖 AI cut-out** button appears only if the `rembg` package is
+    installed (it is never a required dependency).
+
+### 🎯 More accurate extraction
+- Clustering now runs in **CIE-Lab** space, over-segments and then **merges
+  near-duplicate clusters with CIEDE2000**, and picks a **robust representative
+  color** (the member nearest the cluster's Lab median) instead of a muddy mean.
+- The **max colors** setting now goes up to **16** so multi-color prints keep
+  their distinct colors. Images are downsampled for speed.
+
+### 💧 Eyedropper & per-color remove
+- **💧 Eyedropper** mode: click a spot to add that **exact** color to the palette
+  and match it (clearly separate from Pick-remove).
+- Each result card has an **✕** button to drop a wrong color from the matches,
+  cost and planner.
+
+### 🧵 Bigger filament database
+- Grew the database from **225 → 259 filaments** (16 brands), filling the gaps
+  this test exposed: **navies/dark blues, greens (incl. bright/action greens),
+  grays/silvers** plus more general colors — FDM only, with accurate hex values
+  and consistent price/material fallbacks.
+
 ## [v2.0] - 2026-07-09
 
 ### 🎯 More accurate color matching
